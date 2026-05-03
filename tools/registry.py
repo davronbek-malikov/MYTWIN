@@ -1,6 +1,7 @@
 import json
 from tools.memory_tools import save_memory, recall_memories
 from tools.entry_tools import save_entry, query_entries, get_summary
+from tools.report_tools import generate_report
 from utils.logger import logger
 
 # OpenAI function-calling format
@@ -115,6 +116,26 @@ TOOLS_SCHEMA = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "generate_report",
+            "description": (
+                "Generate a formatted financial report showing income, expenses, and net balance. "
+                "Use when the user asks for a report, summary, overview, or 'how much did I spend/earn'."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "period": {
+                        "type": "string",
+                        "enum": ["today", "week", "month", "all"],
+                        "description": "Time period for the report (default: 'month')",
+                    },
+                },
+            },
+        },
+    },
 ]
 
 
@@ -131,6 +152,8 @@ async def execute_tool(tool_name: str, tool_input: dict, user_id: int) -> str:
             result = await query_entries(user_id, **tool_input)
         elif tool_name == "get_summary":
             result = await get_summary(user_id, **tool_input)
+        elif tool_name == "generate_report":
+            result = await generate_report(user_id, **tool_input)
         else:
             return f"Unknown tool: {tool_name}"
 

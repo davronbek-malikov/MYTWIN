@@ -1,14 +1,23 @@
 import json
 import aiosqlite
 import config
+from integrations.google_sheets import sync_to_sheet
 
 
 async def save_entry(
     user_id: int,
     category: str,
-    data: dict,
+    data: dict | None = None,
     description: str | None = None,
+    **extra,
 ) -> str:
+    # AI sometimes passes amount/currency/type at top level instead of inside data
+    if data is None:
+        data = {}
+    for key in ("amount", "currency", "type", "date", "item", "note", "price"):
+        if key in extra:
+            data[key] = extra[key]
+
     data_json = json.dumps(data, ensure_ascii=False)
     async with aiosqlite.connect(config.DATABASE_PATH) as db:
         await db.execute(
@@ -16,6 +25,7 @@ async def save_entry(
             (user_id, category, data_json, description),
         )
         await db.commit()
+    await sync_to_sheet(category, data, description)
     return f"Saved {category}: {description or str(data)[:60]}"
 
 

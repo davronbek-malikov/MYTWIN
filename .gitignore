@@ -8,3 +8,5 @@ __pycache__/
 venv/
 *.egg-info/
 .pytest_cache/
+.claude/
+=6.0.0
