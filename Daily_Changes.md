@@ -184,6 +184,79 @@
 
 ---
 
+## 2026-05-03
+
+---
+
+### 10:00 | Setup | Both Modes | Project Configuration & GitHub
+
+**Files changed:** `.env`, `.env.example`, `config.py`, `bot/telegram_bot.py`, `CLAUDE.md`
+
+**Tasks:**
+- Created `.env` with real `TELEGRAM_BOT_TOKEN` and `OPENAI_API_KEY`
+- Fixed `bot/telegram_bot.py` — was validating `ANTHROPIC_API_KEY` (wrong) → changed to `OPENAI_API_KEY`
+- Removed unused `ANTHROPIC_API_KEY` from config entirely
+- Created `CLAUDE.md` — codebase documentation for Claude Code
+- Initialised git repo inside project folder and pushed to GitHub: `davronbek-malikov/MYTWIN`
+
+---
+
+### 14:00 | Phase 2 | Both Modes | Google Sheets Integration
+
+**Files created:** `integrations/__init__.py`, `integrations/google_sheets.py`
+
+**Files changed:** `config.py`, `.env.example`, `requirements.txt`, `tools/entry_tools.py`
+
+**Tasks:**
+- Built Google Sheets auto-sync via Google Apps Script webhook (no credentials file needed)
+- Added `GOOGLE_WEBHOOK_URL` to config — set blank to disable, paste Apps Script URL to enable
+- `sync_to_sheet(category, data, description)` — async, best-effort, never crashes the bot
+- Financial category detection covers both English and Uzbek terms (Ovqatlanish, Praduxta, Yo'lkira, etc.)
+- `save_entry` now calls `sync_to_sheet` after every DB write automatically
+- Apps Script writes in user's existing format: column = day (`03.05(Sunday)`), row = `Item:Amount`
+- Foreign currency shown in cell value (e.g. `Kofe:4500 KRW`)
+
+---
+
+### 15:00 | Phase 2 | Assistant Mode | Financial Report Tool
+
+**Files created:** `tools/report_tools.py`
+
+**Files changed:** `tools/registry.py`
+
+**Tasks:**
+- Added `generate_report(user_id, period)` — queries SQLite and returns formatted income/expense summary
+- Report periods: today / week / month / all
+- Classifies entries as income or expense using both entry type field and Uzbek category names
+- Registered as AI-callable tool — triggered by natural language ("give me monthly report")
+- Added `generate_report` to `execute_tool` dispatcher
+
+---
+
+### 16:00 | Phase 2 | Assistant Mode | System Prompt — Uzbek Categories & Currency
+
+**File changed:** `core/brain.py`
+
+**Tasks:**
+- Added Uzbek expense category list to system prompt — bot now uses consistent names:
+  Ovqatlanish, Praduxta, Yo'lkira, Uyga xarajat, Yangi uyga xarajat, Boshqa, Qarz, Kurs puli, Kirim
+- Added currency detection rules: "won/wonga" → KRW, "dollar/$" → USD, "so'm/sum" → UZS (default), etc.
+- Bot now saves specific item name as description (e.g. "Kofe") not category name
+
+---
+
+### 17:00 | Bugfix | Both Modes | save_entry Argument Fix
+
+**File changed:** `tools/entry_tools.py`
+
+**Tasks:**
+- Fixed critical bug: AI was sending `amount`, `currency`, `type` as top-level kwargs instead of inside `data` dict
+- `save_entry` now accepts `**extra` and auto-merges top-level financial fields into `data`
+- Root cause: OpenAI function calling sometimes flattens nested objects
+- Effect: transactions were being rejected silently and never reaching Google Sheets
+
+---
+
 ## Upcoming Changes
 
 ### Phase 2 — Persistent Conversation History (planned)
