@@ -354,3 +354,27 @@
 
 #### requirements.txt
 - Added `sounddevice`, `soundfile`, `SpeechRecognition`, `numpy`
+
+---
+
+## 2026-05-06 (Session 3)
+
+---
+
+### Phase 3 | Web UI | Voice Control + Jarvis Features
+
+**Files modified:** `web_app.py`, `templates/index.html`
+
+#### web_app.py
+- Added `POST /api/tts` endpoint — converts text to MP3 via OpenAI TTS, returns audio bytes
+- Browser fetches this to auto-play Twin's responses aloud
+
+#### templates/index.html — Full Voice-First Web UI
+- **🎤 Mic button** — click to start listening via Web Speech API (Chrome/Edge native, free)
+- **Waveform overlay** — full-screen animated waveform shown while listening, shows live transcript
+- **Auto TTS** — after every response, browser fetches `/api/tts` and plays it aloud
+- **"Speaking..." badge** — header indicator while Twin is speaking
+- **6 quick-action chips** on welcome screen (weather, report, news, currency, entries, capabilities)
+- **Animated typing indicator** — 3-dot bounce while AI is thinking
+- **Dark theme** — deep space UI matching the AI assistant aesthetic
+- Voice input flow: click mic → waveform appears → speak → transcript shown → auto-sends → Twin replies in text + audio
