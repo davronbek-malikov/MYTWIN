@@ -394,3 +394,21 @@
 - Mini waveform animation in status bar while listening
 - "Voice ON/OFF" toggle button — one click to disable/re-enable
 - Graceful fallback if mic permission denied
+
+---
+
+### Phase 3 | Web UI | Cross-Browser Voice (Brave compatible)
+
+**Files modified:** `web_app.py`, `templates/index.html`
+
+- **Root cause:** Web Speech API blocked in Brave by default (routes audio to Google — Brave's privacy shield blocks it)
+- **Fix:** Replaced Web Speech API with `MediaRecorder` + `AudioContext` VAD — works in ALL browsers
+- **How it works:**
+  - `AudioContext.createAnalyser()` reads microphone volume 12x per second
+  - When volume exceeds threshold → `MediaRecorder` starts capturing audio
+  - When silence detected for 1.4s → recording stops → audio blob sent to `/api/transcribe`
+  - `/api/transcribe` sends audio to OpenAI Whisper → returns transcript → auto-sends to AI
+- **Added** `POST /api/transcribe` endpoint in `web_app.py` — accepts audio blob, returns Whisper transcript
+- **Browser support:** Brave ✅  Chrome ✅  Edge ✅  Firefox ✅  Safari ✅
+- **Bonus:** More accurate than Google STT, supports Uzbek/Russian/English automatically
+- Volume bar in status strip shows live mic level so user knows it's picking them up
