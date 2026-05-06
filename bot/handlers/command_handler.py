@@ -4,7 +4,7 @@ from telegram.ext import ContextTypes
 
 from bot.keyboards import main_menu_keyboard, mode_keyboard
 from core.brain import brain
-from database.db import get_or_create_user, get_user_mode, set_user_mode
+from database.db import get_or_create_user, get_user_mode, set_user_mode, get_voice_enabled, set_voice_enabled
 from tools.entry_tools import get_summary
 
 
@@ -31,6 +31,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     user = update.effective_user
     await get_or_create_user(user.id, user.username, user.first_name)
     mode = await get_user_mode(user.id)
+    voice_on = await get_voice_enabled(user.id)
 
     await update.message.reply_text(
         f"Hi! I'm *{config.OWNER_NAME}'s AI Twin*.\n\n"
@@ -39,7 +40,21 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         f"*Twin Mode* — I act autonomously on your behalf.\n\n"
         f"Send me text, a voice message, or an image — I'll handle the rest.",
         parse_mode="Markdown",
-        reply_markup=main_menu_keyboard(),
+        reply_markup=main_menu_keyboard(voice_on),
+    )
+
+
+async def voice_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    user = update.effective_user
+    current = await get_voice_enabled(user.id)
+    new_state = not current
+    await set_voice_enabled(user.id, new_state)
+    status = "ON 🔊" if new_state else "OFF 🔇"
+    await update.message.reply_text(
+        f"Voice replies: *{status}*\n\n"
+        f"{'I will now speak my responses back to you.' if new_state else 'Text-only mode.'}",
+        parse_mode="Markdown",
+        reply_markup=main_menu_keyboard(new_state),
     )
 
 
@@ -94,3 +109,15 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         db_user = await get_or_create_user(user.id)
         brain.clear_history(db_user["id"])
         await query.edit_message_text("Conversation cleared. Fresh start.")
+
+    elif data == "toggle_voice":
+        current = await get_voice_enabled(user.id)
+        new_state = not current
+        await set_voice_enabled(user.id, new_state)
+        status = "ON 🔊" if new_state else "OFF 🔇"
+        await query.edit_message_text(
+            f"Voice replies: *{status}*\n\n"
+            f"{'I will now speak my responses back to you.' if new_state else 'Text-only mode.'}",
+            parse_mode="Markdown",
+            reply_markup=main_menu_keyboard(new_state),
+        )

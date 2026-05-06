@@ -2,6 +2,7 @@ import json
 from tools.memory_tools import save_memory, recall_memories
 from tools.entry_tools import save_entry, query_entries, get_summary
 from tools.report_tools import generate_report
+from tools.search_tools import web_search, get_weather, get_news, convert_currency
 from utils.logger import logger
 
 # OpenAI function-calling format
@@ -136,6 +137,65 @@ TOOLS_SCHEMA = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "web_search",
+            "description": "Search the internet for any information, current events, or facts.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Search query"},
+                    "max_results": {"type": "integer", "description": "Number of results (default 5)"},
+                },
+                "required": ["query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_weather",
+            "description": "Get current weather for any city.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "city": {"type": "string", "description": "City name (e.g. Tashkent, Seoul, London)"},
+                },
+                "required": ["city"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_news",
+            "description": "Get latest news headlines on any topic.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "topic": {"type": "string", "description": "News topic (default: latest news)"},
+                    "max_results": {"type": "integer", "description": "Number of results (default 5)"},
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "convert_currency",
+            "description": "Convert an amount between currencies. Use for any currency conversion request.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "amount": {"type": "number", "description": "Amount to convert"},
+                    "from_currency": {"type": "string", "description": "Source currency code (USD, KRW, UZS, EUR, RUB)"},
+                    "to_currency": {"type": "string", "description": "Target currency code"},
+                },
+                "required": ["amount", "from_currency", "to_currency"],
+            },
+        },
+    },
 ]
 
 
@@ -154,6 +214,14 @@ async def execute_tool(tool_name: str, tool_input: dict, user_id: int) -> str:
             result = await get_summary(user_id, **tool_input)
         elif tool_name == "generate_report":
             result = await generate_report(user_id, **tool_input)
+        elif tool_name == "web_search":
+            result = await web_search(**tool_input)
+        elif tool_name == "get_weather":
+            result = await get_weather(**tool_input)
+        elif tool_name == "get_news":
+            result = await get_news(**tool_input)
+        elif tool_name == "convert_currency":
+            result = await convert_currency(**tool_input)
         else:
             return f"Unknown tool: {tool_name}"
 

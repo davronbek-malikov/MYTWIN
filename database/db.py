@@ -36,7 +36,12 @@ CREATE TABLE IF NOT EXISTS entries (
 async def init_db() -> None:
     async with aiosqlite.connect(config.DATABASE_PATH) as db:
         await db.executescript(_CREATE_SQL)
-        await db.commit()
+        # Migration: add voice_enabled if not present
+        try:
+            await db.execute("ALTER TABLE users ADD COLUMN voice_enabled INTEGER DEFAULT 0")
+            await db.commit()
+        except Exception:
+            pass  # Column already exists
     logger.info(f"Database ready at {config.DATABASE_PATH}")
 
 
@@ -77,5 +82,23 @@ async def set_user_mode(telegram_id: int, mode: str) -> None:
     async with aiosqlite.connect(config.DATABASE_PATH) as db:
         await db.execute(
             "UPDATE users SET mode = ? WHERE telegram_id = ?", (mode, telegram_id)
+        )
+        await db.commit()
+
+
+async def get_voice_enabled(telegram_id: int) -> bool:
+    async with aiosqlite.connect(config.DATABASE_PATH) as db:
+        cur = await db.execute(
+            "SELECT voice_enabled FROM users WHERE telegram_id = ?", (telegram_id,)
+        )
+        row = await cur.fetchone()
+        return bool(row[0]) if row else False
+
+
+async def set_voice_enabled(telegram_id: int, enabled: bool) -> None:
+    async with aiosqlite.connect(config.DATABASE_PATH) as db:
+        await db.execute(
+            "UPDATE users SET voice_enabled = ? WHERE telegram_id = ?",
+            (int(enabled), telegram_id),
         )
         await db.commit()

@@ -14,6 +14,7 @@ from bot.handlers.command_handler import (
     mode_command,
     start_command,
     stats_command,
+    voice_command,
 )
 from bot.handlers.image_handler import image_handler
 from bot.handlers.text_handler import text_handler
@@ -45,6 +46,7 @@ def create_and_run_bot() -> None:
     app.add_handler(CommandHandler("mode", mode_command))
     app.add_handler(CommandHandler("clear", clear_command))
     app.add_handler(CommandHandler("stats", stats_command))
+    app.add_handler(CommandHandler("voice", voice_command))
 
     # Messages
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))

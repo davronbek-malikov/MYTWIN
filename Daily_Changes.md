@@ -257,6 +257,52 @@
 
 ---
 
+## 2026-05-06
+
+---
+
+### Phase 3 | Voice-First Agent | TTS + Web Tools
+
+**Files created:** `tools/tts_tools.py`, `tools/search_tools.py`
+
+**Files modified:** `database/db.py`, `tools/registry.py`, `bot/handlers/text_handler.py`, `bot/handlers/voice_handler.py`, `bot/handlers/command_handler.py`, `bot/telegram_bot.py`, `bot/keyboards.py`, `core/brain.py`, `requirements.txt`
+
+---
+
+#### tools/tts_tools.py — Voice Replies (TTS)
+- `text_to_speech(text, voice)` — converts bot response to audio using OpenAI TTS API (`tts-1`, voice: `nova`)
+- Strips markdown symbols before speaking, trims to 800 chars
+- Returns `bytes` in Opus format, ready for Telegram voice message
+
+#### tools/search_tools.py — Information Tools
+- `web_search(query, max_results)` — searches internet via DuckDuckGo (no API key needed)
+- `get_weather(city)` — real-time weather via wttr.in (free, no API key)
+- `get_news(topic, max_results)` — latest news headlines via DuckDuckGo News
+- `convert_currency(amount, from, to)` — live exchange rates via frankfurter.app (free, no API key)
+
+#### database/db.py — Voice Preference
+- Added `voice_enabled` column to `users` table via safe ALTER TABLE migration
+- `get_voice_enabled(telegram_id)` / `set_voice_enabled(telegram_id, enabled)` functions
+
+#### Handlers — Voice Reply Integration
+- `text_handler.py` — after text response, sends voice reply if `voice_enabled = True`
+- `voice_handler.py` — always sends voice reply when user sends a voice message
+
+#### Bot — /voice Command & Keyboard
+- New `/voice` command — toggles voice replies ON/OFF, shows updated keyboard
+- `bot/keyboards.py` — main menu now shows `🔊 Voice: ON` / `🔇 Voice: OFF` toggle button
+- `callback_handler` — handles `toggle_voice` button press
+- `bot/telegram_bot.py` — registered `/voice` CommandHandler
+
+#### System Prompt — New Tools Awareness
+- Brain now knows about `web_search`, `get_weather`, `get_news`, `convert_currency`
+- Rules added: always use tools for weather/news/search requests, never say "I can't"
+
+#### requirements.txt
+- Added `duckduckgo-search>=6.0.0`
+
+---
+
 ## Upcoming Changes
 
 ### Phase 2 — Persistent Conversation History (planned)
