@@ -3,7 +3,7 @@ import config
 from utils.logger import logger
 
 
-async def text_to_speech(text: str, voice: str = "nova") -> bytes | None:
+async def text_to_speech(text: str, voice: str = "nova", fmt: str = "opus") -> bytes | None:
     if not text or not text.strip():
         return None
     # Strip markdown symbols that sound bad when spoken
@@ -20,7 +20,7 @@ async def text_to_speech(text: str, voice: str = "nova") -> bytes | None:
             model="tts-1",
             voice=voice,
             input=clean,
-            response_format="opus",
+            response_format=fmt,
         )
         return response.content
     except Exception as e:

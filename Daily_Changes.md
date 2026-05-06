@@ -188,7 +188,7 @@
 
 ---
 
-### 10:00 | Setup | Both Modes | Project Configuration & GitHub
+### 10:00 | Setup | Both Modes | Project Configuration & GitHub 
 
 **Files changed:** `.env`, `.env.example`, `config.py`, `bot/telegram_bot.py`, `CLAUDE.md`
 
@@ -320,3 +320,37 @@
 - Email inbox monitoring and drafting
 - Cron-based autonomous routines (Twin works while you sleep)
 - Decision log: Twin records every action taken on your behalf
+
+---
+
+## 2026-05-06 (Session 2)
+
+---
+
+### Phase 3 | Desktop Voice Assistant | Wake Word App
+
+**Files created:** `desktop_app.py`
+
+**Files modified:** `config.py`, `.env.example`, `tools/tts_tools.py`, `requirements.txt`
+
+#### desktop_app.py — Always-Listening Voice App
+- Runs independently from Telegram bot (`python desktop_app.py`)
+- Wake word loop: listens → detects wake word → records command → replies aloud
+- Uses `sounddevice` for microphone recording with energy-based VAD (voice activity detection)
+- Sends audio to OpenAI Whisper for transcription
+- Processes command through `brain.think()` — same AI, same memory, same tools as Telegram bot
+- TTS reply via OpenAI (`nova` voice, mp3) played back through speakers via `soundfile`
+- Coloured terminal UI: 💤 sleeping → ⚡ woke → 👂 listening → 🧠 thinking → 🔊 speaking
+- `--list-mics` flag: `python desktop_app.py --list-mics` to show all microphone devices
+- `MICROPHONE_INDEX` config to specify which mic to use (needed when no default mic is set)
+
+#### config.py / .env.example
+- Added `WAKE_WORD` (default: "Twin")
+- Added `VOICE_NAME` (default: "nova")
+- Added `MICROPHONE_INDEX` (set to mic device number from --list-mics output)
+
+#### tools/tts_tools.py
+- Added `fmt` parameter — "opus" for Telegram, "mp3" for desktop playback
+
+#### requirements.txt
+- Added `sounddevice`, `soundfile`, `SpeechRecognition`, `numpy`
