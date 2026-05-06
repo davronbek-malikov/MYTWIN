@@ -378,3 +378,19 @@
 - **Animated typing indicator** — 3-dot bounce while AI is thinking
 - **Dark theme** — deep space UI matching the AI assistant aesthetic
 - Voice input flow: click mic → waveform appears → speak → transcript shown → auto-sends → Twin replies in text + audio
+
+---
+
+### Phase 3 | Web UI | Always-On Voice (No Click Required)
+
+**Files modified:** `templates/index.html`
+
+- Auto-starts microphone on page load — no button click needed
+- Live interim transcript shown in input box as user speaks (greyed out)
+- Auto-sends when user stops talking (browser VAD detects silence)
+- After TTS response plays, mic restarts automatically
+- Mic never runs while Twin is speaking (prevents feedback loop)
+- Status bar replaces waveform overlay: shows 🎤 Listening / 🧠 Thinking / 🔊 Speaking state
+- Mini waveform animation in status bar while listening
+- "Voice ON/OFF" toggle button — one click to disable/re-enable
+- Graceful fallback if mic permission denied
