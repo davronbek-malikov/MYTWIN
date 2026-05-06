@@ -201,6 +201,17 @@
       </div>
     </div>
 
+    <!-- One-time activation overlay -->
+    <div id="activate-overlay" style="
+      position:absolute; inset:0; z-index:50;
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      background:rgba(8,12,20,.88); gap:16px; cursor:pointer;"
+      onclick="activateVoice()">
+      <div style="font-size:48px">🎤</div>
+      <div style="font-size:18px;font-weight:600;color:#e2e8f0">Click anywhere to activate voice</div>
+      <div style="font-size:13px;color:#64748b">Required once per session by the browser</div>
+    </div>
+
     <!-- Status bar -->
     <div id="status-bar">
       <span id="status-icon">🎤</span>
@@ -279,9 +290,10 @@ async function initMic() {
     document.getElementById('status-bar').innerHTML = `
       <span>🔒</span>
       <span style="color:#f59e0b">
-        Microphone blocked —
-        click the <b>🔒 lock icon</b> in your address bar →
-        set <b>Microphone</b> to <b>Allow</b> → refresh the page.
+        Microphone blocked — check two things:
+        (1) Click the <b>🔒 lock</b> in address bar → Microphone → <b>Allow</b>.
+        (2) Windows: Start → Settings → Privacy → Microphone → turn <b>ON</b> for Brave.
+        Then refresh.
       </span>`;
   }
 }
@@ -517,9 +529,14 @@ async function loadEntries() {
 
 // ── Boot ──────────────────────────────────────────────────────────────────
 loadStats(); loadEntries();
-document.getElementById('input').focus();
-// Start mic after brief delay so page renders first
-setTimeout(initMic, 600);
+
+async function activateVoice() {
+  document.getElementById('activate-overlay').style.display = 'none';
+  await initMic();
+}
+
+// Position overlay inside main only
+document.querySelector('main').style.position = 'relative';
 </script>
 </body>
 </html>
