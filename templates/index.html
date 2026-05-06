@@ -273,9 +273,16 @@ async function initMic() {
     startVAD();
     setStatus('listening', 'Listening — just speak');
   } catch(e) {
-    setStatus('', 'Microphone access denied. Click "Voice ON" to retry.');
     autoVoice = false;
     updateToggleBtn();
+    // Show fix instructions directly in the UI
+    document.getElementById('status-bar').innerHTML = `
+      <span>🔒</span>
+      <span style="color:#f59e0b">
+        Microphone blocked —
+        click the <b>🔒 lock icon</b> in your address bar →
+        set <b>Microphone</b> to <b>Allow</b> → refresh the page.
+      </span>`;
   }
 }
 
