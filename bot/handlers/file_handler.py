@@ -45,7 +45,14 @@ async def file_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
         # ── Image file → vision ───────────────────────────────────────
         if mime in _IMAGE_MIME:
-            prompt = caption or "This is a receipt or screenshot. Extract all items, amounts and currencies, then save each as a financial entry."
+            prompt = (
+                f"{caption}\n\n"
+                "IMPORTANT: Look carefully at this receipt/screenshot. "
+                "Find the transaction DATE printed on it (e.g. 2026-05-06, 06/05, May 6). "
+                "Use THAT date in data['date'] when saving — NOT today's date. "
+                "If no date is visible, use today. "
+                "Extract every item and amount and save each as a separate entry."
+            ).strip()
             response = await brain.think(db_user["id"], prompt, mode, image_data=raw, image_mime=mime)
             await thinking.edit_text(response)
             return

@@ -50,9 +50,19 @@ async def image_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         await tg_file.download_to_memory(buf)
         image_data = buf.getvalue()
 
+        # Always inject date-extraction instruction so the AI reads the
+        # date FROM the receipt, not defaults to today
         caption = update.message.caption or ""
+        prompt = (
+            f"{caption}\n\n"
+            "IMPORTANT: Look carefully at this receipt/screenshot. "
+            "Find the transaction DATE printed on it (e.g. 2026-05-06, 06/05, May 6). "
+            "Use THAT date in data['date'] when saving — NOT today's date. "
+            "If no date is visible, use today. "
+            "Extract every item and amount and save each as a separate entry."
+        ).strip()
         response = await brain.think(
-            db_user["id"], caption, mode,
+            db_user["id"], prompt, mode,
             image_data=image_data, image_mime=mime_type,
         )
         await thinking.edit_text(response)
