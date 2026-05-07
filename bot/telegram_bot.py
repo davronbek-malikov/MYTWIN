@@ -16,6 +16,7 @@ from bot.handlers.command_handler import (
     stats_command,
     voice_command,
 )
+from bot.handlers.file_handler import file_handler
 from bot.handlers.image_handler import image_handler
 from bot.handlers.text_handler import text_handler
 from bot.handlers.voice_handler import voice_handler
@@ -52,6 +53,7 @@ def create_and_run_bot() -> None:
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
     app.add_handler(MessageHandler(filters.VOICE | filters.AUDIO, voice_handler))
     app.add_handler(MessageHandler(filters.PHOTO | filters.Document.IMAGE, image_handler))
+    app.add_handler(MessageHandler(filters.Document.ALL & ~filters.Document.IMAGE, file_handler))
 
     # Inline button callbacks
     app.add_handler(CallbackQueryHandler(callback_handler))

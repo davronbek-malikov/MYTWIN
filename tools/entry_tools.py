@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 import aiosqlite
 import config
 from integrations.google_sheets import sync_to_sheet
@@ -11,12 +12,15 @@ async def save_entry(
     description: str | None = None,
     **extra,
 ) -> str:
-    # AI sometimes passes amount/currency/type at top level instead of inside data
     if data is None:
         data = {}
+    # Merge any top-level financial fields AI passes outside data dict
     for key in ("amount", "currency", "type", "date", "item", "note", "price"):
         if key in extra:
             data[key] = extra[key]
+    # Always stamp the date so queries work correctly
+    if "date" not in data:
+        data["date"] = datetime.now().strftime("%Y-%m-%d")
 
     data_json = json.dumps(data, ensure_ascii=False)
     async with aiosqlite.connect(config.DATABASE_PATH) as db:
@@ -26,7 +30,17 @@ async def save_entry(
         )
         await db.commit()
     await sync_to_sheet(category, data, description)
-    return f"Saved {category}: {description or str(data)[:60]}"
+
+    # Return a rich confirmation string for the AI to forward to the user
+    amount   = data.get("amount", "")
+    currency = data.get("currency", "")
+    etype    = data.get("type", "")
+    emoji    = "💸" if etype == "expense" else "💰" if etype == "income" else "✅"
+    amt_str  = f"{amount:,} {currency}".strip() if amount else ""
+    return (
+        f"{emoji} Saved | {category} | {description or ''} "
+        f"{'| ' + amt_str if amt_str else ''} | {data['date']}"
+    )
 
 
 async def query_entries(
@@ -59,6 +73,55 @@ async def query_entries(
             entry["data"] = json.loads(entry["data"])
             result.append(entry)
         return result
+
+
+async def get_daily_summary(user_id: int, date: str) -> str:
+    """Return all transactions for a specific date as a formatted string.
+    date format: YYYY-MM-DD or natural like '2026-05-07'
+    """
+    async with aiosqlite.connect(config.DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        cur = await db.execute(
+            "SELECT category, data, description, created_at FROM entries "
+            "WHERE user_id = ? AND date(created_at) = date(?)"
+            "ORDER BY created_at ASC",
+            (user_id, date),
+        )
+        rows = await cur.fetchall()
+
+    if not rows:
+        return f"No entries found for {date}."
+
+    income_total = expense_total = 0.0
+    lines = [f"📅 Summary for {date}\n"]
+    currency = ""
+
+    for row in rows:
+        data = json.loads(row["data"])
+        cat  = row["category"]
+        desc = row["description"] or data.get("description", cat)
+        amt  = data.get("amount", 0) or 0
+        cur_sym = data.get("currency", "")
+        if cur_sym:
+            currency = cur_sym
+        etype = data.get("type", "")
+        try:
+            amt = float(amt)
+        except (ValueError, TypeError):
+            amt = 0.0
+
+        if etype == "income" or cat.lower() in ("kirim", "kurs puli"):
+            income_total += amt
+            lines.append(f"  💰 {cat} | {desc} | +{amt:,.0f} {cur_sym}")
+        else:
+            expense_total += amt
+            lines.append(f"  💸 {cat} | {desc} | -{amt:,.0f} {cur_sym}")
+
+    lines.append(f"\n💰 Income:   {income_total:,.0f} {currency}")
+    lines.append(f"💸 Expenses: {expense_total:,.0f} {currency}")
+    net = income_total - expense_total
+    lines.append(f"{'📈' if net >= 0 else '📉'} Net:      {'+' if net >= 0 else ''}{net:,.0f} {currency}")
+    return "\n".join(lines)
 
 
 async def get_summary(

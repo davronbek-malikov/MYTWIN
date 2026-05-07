@@ -412,3 +412,40 @@
 - **Browser support:** Brave ✅  Chrome ✅  Edge ✅  Firefox ✅  Safari ✅
 - **Bonus:** More accurate than Google STT, supports Uzbek/Russian/English automatically
 - Volume bar in status strip shows live mic level so user knows it's picking them up
+
+---
+
+## 2026-05-07
+
+---
+
+### Phase 2 | Financial Agent | Complete Financial Tracking
+
+**Files modified:** `tools/entry_tools.py`, `tools/registry.py`, `core/brain.py`, `bot/telegram_bot.py`
+**Files created:** `bot/handlers/file_handler.py`
+
+#### tools/entry_tools.py
+- `save_entry` now always stamps `data["date"]` with today's date — queries by date now work correctly
+- `save_entry` returns a rich confirmation string: emoji + category + item + amount + date
+- Added `get_daily_summary(user_id, date)` — returns all transactions for a specific date with income/expense/net totals
+
+#### tools/registry.py
+- Registered `get_daily_summary` as AI-callable tool
+- Trigger: "how much did I spend on 5th May", "show me today's transactions", "what did I buy yesterday"
+
+#### core/brain.py — System Prompt
+- Rule: save immediately when user mentions any financial data
+- Rule: always reply with formatted ✅ confirmation after saving (category, item, amount, date)
+- Rule: use `get_daily_summary` for specific date questions, `generate_report` for period questions
+- Rule: read ALL items from receipt photos and save each transaction
+
+#### bot/handlers/file_handler.py (new)
+- Handles any document/file sent to Telegram bot
+- Image files → vision (receipt reading)
+- .txt / .csv → text extracted, parsed for transactions
+- .pdf → text extracted from up to 3 pages (requires pypdf)
+- .xlsx / .xls → rows read from first sheet (requires openpyxl)
+- Unknown files → AI acknowledges and asks what to do
+
+#### bot/telegram_bot.py
+- Registered `file_handler` for `Document.ALL` (non-image documents)

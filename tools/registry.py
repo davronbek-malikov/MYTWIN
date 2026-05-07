@@ -1,6 +1,6 @@
 import json
 from tools.memory_tools import save_memory, recall_memories
-from tools.entry_tools import save_entry, query_entries, get_summary
+from tools.entry_tools import save_entry, query_entries, get_summary, get_daily_summary
 from tools.report_tools import generate_report
 from tools.search_tools import web_search, get_weather, get_news, convert_currency
 from utils.logger import logger
@@ -120,6 +120,26 @@ TOOLS_SCHEMA = [
     {
         "type": "function",
         "function": {
+            "name": "get_daily_summary",
+            "description": (
+                "Get all financial transactions for a specific date with totals. "
+                "Use when user asks about a specific day: '5th of May', 'yesterday', 'today', '2026-05-07'."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "date": {
+                        "type": "string",
+                        "description": "Date in YYYY-MM-DD format (e.g. '2026-05-07')",
+                    },
+                },
+                "required": ["date"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "generate_report",
             "description": (
                 "Generate a formatted financial report showing income, expenses, and net balance. "
@@ -212,6 +232,8 @@ async def execute_tool(tool_name: str, tool_input: dict, user_id: int) -> str:
             result = await query_entries(user_id, **tool_input)
         elif tool_name == "get_summary":
             result = await get_summary(user_id, **tool_input)
+        elif tool_name == "get_daily_summary":
+            result = await get_daily_summary(user_id, **tool_input)
         elif tool_name == "generate_report":
             result = await generate_report(user_id, **tool_input)
         elif tool_name == "web_search":
