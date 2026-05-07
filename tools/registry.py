@@ -1,6 +1,6 @@
 import json
 from tools.memory_tools import save_memory, recall_memories
-from tools.entry_tools import save_entry, query_entries, get_summary, get_daily_summary
+from tools.entry_tools import save_entry, query_entries, get_summary, get_daily_summary, delete_entry
 from tools.report_tools import generate_report
 from tools.search_tools import web_search, get_weather, get_news, convert_currency
 from utils.logger import logger
@@ -112,6 +112,38 @@ TOOLS_SCHEMA = [
                         "type": "string",
                         "enum": ["today", "week", "month", "all"],
                         "description": "Time period (default: 'all')",
+                    },
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "delete_entry",
+            "description": (
+                "Delete a saved entry from the database AND remove it from Google Sheet. "
+                "Use when the user says 'delete', 'remove', 'I made a mistake', 'wrong entry', "
+                "'undo', 'o'chirish', 'xato', 'noto'g'ri'."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "entry_id": {
+                        "type": "integer",
+                        "description": "Specific entry ID to delete (from query_entries result)",
+                    },
+                    "delete_last": {
+                        "type": "boolean",
+                        "description": "Delete the most recently saved entry",
+                    },
+                    "search": {
+                        "type": "string",
+                        "description": "Search term to find the entry (item name, amount, description)",
+                    },
+                    "date": {
+                        "type": "string",
+                        "description": "Date filter YYYY-MM-DD to narrow the search",
                     },
                 },
             },
@@ -232,6 +264,8 @@ async def execute_tool(tool_name: str, tool_input: dict, user_id: int) -> str:
             result = await query_entries(user_id, **tool_input)
         elif tool_name == "get_summary":
             result = await get_summary(user_id, **tool_input)
+        elif tool_name == "delete_entry":
+            result = await delete_entry(user_id, **tool_input)
         elif tool_name == "get_daily_summary":
             result = await get_daily_summary(user_id, **tool_input)
         elif tool_name == "generate_report":

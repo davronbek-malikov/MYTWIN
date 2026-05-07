@@ -88,6 +88,65 @@ async def query_entries(
         return result
 
 
+async def delete_entry(
+    user_id: int,
+    entry_id: int | None = None,
+    delete_last: bool = False,
+    search: str | None = None,
+    date: str | None = None,
+) -> str:
+    """Delete one entry from the database and sync the deletion to Google Sheets."""
+    from integrations.google_sheets import delete_from_sheet
+
+    async with aiosqlite.connect(config.DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+
+        if delete_last:
+            cur = await db.execute(
+                "SELECT * FROM entries WHERE user_id = ? ORDER BY created_at DESC LIMIT 1",
+                (user_id,),
+            )
+        elif entry_id:
+            cur = await db.execute(
+                "SELECT * FROM entries WHERE id = ? AND user_id = ?",
+                (entry_id, user_id),
+            )
+        elif search:
+            q = f"%{search}%"
+            date_filter = f"AND json_extract(data,'$.date') = '{date}'" if date else ""
+            cur = await db.execute(
+                f"SELECT * FROM entries WHERE user_id = ? "
+                f"AND (description LIKE ? OR data LIKE ?) {date_filter} "
+                f"ORDER BY created_at DESC LIMIT 1",
+                (user_id, q, q),
+            )
+        else:
+            return "Please specify what to delete — entry_id, search term, or delete_last=true."
+
+        row = await cur.fetchone()
+        if not row:
+            return "❌ Entry not found. Use 'show my entries' to see what's saved."
+
+        entry = dict(row)
+        data  = json.loads(entry["data"])
+
+        await db.execute("DELETE FROM entries WHERE id = ?", (entry["id"],))
+        await db.commit()
+
+    cat  = entry["category"]
+    desc = entry["description"] or data.get("description", "")
+    amt  = data.get("amount", "")
+    cur_sym = data.get("currency", "")
+    tx_date = data.get("date", "")
+
+    await delete_from_sheet(cat, data, desc)
+
+    return (
+        f"🗑 Deleted: {cat} | {desc} | {amt} {cur_sym} | {tx_date}\n"
+        f"Also removed from Google Sheet."
+    )
+
+
 async def get_daily_summary(user_id: int, date: str) -> str:
     """Return all transactions for a specific date as a formatted string.
     date format: YYYY-MM-DD  e.g. '2026-05-06'

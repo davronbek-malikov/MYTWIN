@@ -30,6 +30,31 @@ def _post_to_sheet(payload: dict) -> None:
         client.post(config.GOOGLE_WEBHOOK_URL, json=payload)
 
 
+async def delete_from_sheet(category: str, data: dict, description: str | None = None) -> None:
+    if not config.GOOGLE_WEBHOOK_URL:
+        return
+    transaction_date = data.get("date") or datetime.now().strftime("%Y-%m-%d")
+    amount   = data.get("amount", "")
+    currency = data.get("currency", "")
+    desc     = description or data.get("description", category)
+    # Build the cell value string exactly as it was written
+    cell_value = f"{desc}:{amount}"
+    if currency and currency != "UZS":
+        cell_value += f" {currency}"
+
+    payload = {
+        "action": "delete",
+        "transaction_date": transaction_date,
+        "cell_value": cell_value,
+        "description": desc,
+    }
+    try:
+        await asyncio.to_thread(_post_to_sheet, payload)
+        logger.info(f"Delete request sent to Google Sheet for '{cell_value}'")
+    except Exception as e:
+        logger.error(f"Google Sheets delete failed: {e}")
+
+
 async def sync_to_sheet(category: str, data: dict, description: str | None = None) -> None:
     if not _is_financial(category):
         return
