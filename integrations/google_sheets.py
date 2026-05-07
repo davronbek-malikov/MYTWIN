@@ -35,20 +35,21 @@ async def sync_to_sheet(category: str, data: dict, description: str | None = Non
         return
     if not config.GOOGLE_WEBHOOK_URL:
         return
+
+    # Use the actual transaction date (set by AI from user's words like "kecha")
+    # Fall back to today only if not set
+    transaction_date = data.get("date") or datetime.now().strftime("%Y-%m-%d")
+
     payload = {
-        "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "transaction_date": transaction_date,          # YYYY-MM-DD — Apps Script uses this for column
         "category": category,
         "type": data.get("type", ""),
         "amount": data.get("amount", ""),
         "currency": data.get("currency", ""),
         "description": description or data.get("description", ""),
-        "extra": json.dumps(
-            {k: v for k, v in data.items() if k not in ("type", "amount", "currency", "description")},
-            ensure_ascii=False,
-        ),
     }
     try:
         await asyncio.to_thread(_post_to_sheet, payload)
-        logger.info(f"Synced '{category}' entry to Google Sheet")
+        logger.info(f"Synced '{category}' entry to Google Sheet (date={transaction_date})")
     except Exception as e:
         logger.error(f"Google Sheets sync failed: {e}")
