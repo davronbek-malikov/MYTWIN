@@ -5,6 +5,7 @@ from telegram.ext import ContextTypes
 
 from core.brain import brain
 from database.db import get_or_create_user, get_user_mode
+from utils.dedup import is_duplicate
 from utils.logger import logger
 
 _SUPPORTED_MIME = {"image/jpeg", "image/png", "image/gif", "image/webp"}
@@ -14,6 +15,16 @@ async def image_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     user = update.effective_user
     db_user = await get_or_create_user(user.id, user.username, user.first_name)
     mode = await get_user_mode(user.id)
+
+    # Dedup check using Telegram's file_unique_id
+    file_id = (
+        update.message.photo[-1].file_unique_id if update.message.photo
+        else update.message.document.file_unique_id if update.message.document
+        else None
+    )
+    if file_id and is_duplicate(user.id, file_id):
+        await update.message.reply_text("⚠️ Already processed this image recently — ignored.")
+        return
 
     thinking = await update.message.reply_text("Analyzing image...")
 

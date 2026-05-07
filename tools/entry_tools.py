@@ -24,6 +24,19 @@ async def save_entry(
 
     data_json = json.dumps(data, ensure_ascii=False)
     async with aiosqlite.connect(config.DATABASE_PATH) as db:
+        # Duplicate check: same category + amount + date saved within last 5 minutes
+        dup = await db.execute(
+            "SELECT id FROM entries WHERE user_id = ? AND category = ? "
+            "AND json_extract(data,'$.amount') = ? "
+            "AND json_extract(data,'$.date') = ? "
+            "AND created_at >= datetime('now','-5 minutes')",
+            (user_id, category, str(data.get("amount", "")), data.get("date", "")),
+        )
+        if await dup.fetchone():
+            return (
+                f"⚠️ Duplicate — this entry ({category} {data.get('amount','')} "
+                f"on {data.get('date','')}) was already saved a moment ago. Ignored."
+            )
         await db.execute(
             "INSERT INTO entries (user_id, category, data, description) VALUES (?, ?, ?, ?)",
             (user_id, category, data_json, description),

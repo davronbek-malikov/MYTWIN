@@ -13,6 +13,7 @@ from telegram.ext import ContextTypes
 
 from core.brain import brain
 from database.db import get_or_create_user, get_user_mode
+from utils.dedup import is_duplicate
 from utils.logger import logger
 
 _IMAGE_MIME = {"image/jpeg", "image/png", "image/gif", "image/webp", "image/bmp"}
@@ -20,9 +21,15 @@ _IMAGE_MIME = {"image/jpeg", "image/png", "image/gif", "image/webp", "image/bmp"
 
 async def file_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
+    doc = update.message.document
+
+    # Dedup: same file sent twice
+    if doc and is_duplicate(user.id, doc.file_unique_id):
+        await update.message.reply_text("⚠️ Already processed this file — ignored.")
+        return
+
     db_user = await get_or_create_user(user.id, user.username, user.first_name)
     mode = await get_user_mode(user.id)
-    doc = update.message.document
     caption = update.message.caption or ""
 
     thinking = await update.message.reply_text("📎 Processing file...")

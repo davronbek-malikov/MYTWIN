@@ -8,6 +8,7 @@ import config
 from core.brain import brain
 from database.db import get_or_create_user, get_user_mode, get_voice_enabled
 from tools.tts_tools import text_to_speech
+from utils.dedup import is_duplicate
 from utils.logger import logger
 
 
@@ -16,6 +17,12 @@ async def voice_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     if not config.OPENAI_API_KEY:
         await update.message.reply_text("OPENAI_API_KEY is missing from your .env file.")
+        return
+
+    # Dedup: prevent same voice file being processed twice
+    voice = update.message.voice or update.message.audio
+    if voice and is_duplicate(user.id, voice.file_unique_id):
+        await update.message.reply_text("⚠️ Already processed this voice message — ignored.")
         return
 
     db_user = await get_or_create_user(user.id, user.username, user.first_name)
