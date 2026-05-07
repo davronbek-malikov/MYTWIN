@@ -12,6 +12,12 @@ MAX_HISTORY: int = int(os.getenv("MAX_HISTORY", "40"))
 
 # Google Sheets integration (optional — leave blank to disable)
 GOOGLE_WEBHOOK_URL: str = os.getenv("GOOGLE_WEBHOOK_URL", "")
+GOOGLE_SHEET_ID: str    = os.getenv("GOOGLE_SHEET_ID", "")
+
+def google_sheet_url() -> str:
+    if GOOGLE_SHEET_ID:
+        return f"https://docs.google.com/spreadsheets/d/{GOOGLE_SHEET_ID}/edit"
+    return ""
 
 # Desktop voice assistant
 WAKE_WORD: str = os.getenv("WAKE_WORD", "Twin")

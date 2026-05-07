@@ -44,6 +44,7 @@ async def index(request: Request):
         "request": request,
         "owner": config.OWNER_NAME,
         "mode": mode,
+        "sheet_url": config.google_sheet_url(),
     })
 
 

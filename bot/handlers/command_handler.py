@@ -44,6 +44,22 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     )
 
 
+async def sheet_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    url = config.google_sheet_url()
+    if url:
+        await update.message.reply_text(
+            f"📊 *Your Financial Sheet*\n\n[Open Google Sheet]({url})",
+            parse_mode="Markdown",
+            disable_web_page_preview=False,
+        )
+    else:
+        await update.message.reply_text(
+            "⚠️ Sheet ID not set. Add `GOOGLE_SHEET_ID=your_id` to your `.env` file.\n\n"
+            "Find it in your sheet URL:\n`docs.google.com/spreadsheets/d/`*>>>ID<<<*`/edit`",
+            parse_mode="Markdown",
+        )
+
+
 async def voice_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
     current = await get_voice_enabled(user.id)

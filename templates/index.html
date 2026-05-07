@@ -182,6 +182,13 @@
       <div id="entries-list"><div style="color:var(--muted);font-size:12px">Loading...</div></div>
     </div>
     <button class="side-btn" onclick="clearChat()">🗑 Clear conversation</button>
+    {% if sheet_url %}
+    <a href="{{ sheet_url }}" target="_blank" style="text-decoration:none">
+      <button class="side-btn" style="border-color:#10b981;color:#10b981">
+        📊 Open Google Sheet ↗
+      </button>
+    </a>
+    {% endif %}
   </aside>
 
   <main>
