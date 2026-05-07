@@ -59,8 +59,8 @@ async def query_entries(
             base += " AND category = ?"
             params.append(category)
         if search:
-            base += " AND (description LIKE ? OR data LIKE ?)"
-            params += [f"%{search}%", f"%{search}%"]
+            base += " AND (description LIKE ? OR data LIKE ? OR json_extract(data,'$.date') LIKE ?)"
+            params += [f"%{search}%", f"%{search}%", f"%{search}%"]
 
         base += " ORDER BY created_at DESC LIMIT ?"
         params.append(limit)
@@ -77,15 +77,20 @@ async def query_entries(
 
 async def get_daily_summary(user_id: int, date: str) -> str:
     """Return all transactions for a specific date as a formatted string.
-    date format: YYYY-MM-DD or natural like '2026-05-07'
+    date format: YYYY-MM-DD  e.g. '2026-05-06'
+    Queries the JSON date field (transaction date) not created_at (insert date).
     """
     async with aiosqlite.connect(config.DATABASE_PATH) as db:
         db.row_factory = aiosqlite.Row
         cur = await db.execute(
+            # Primary: use the date stored inside the JSON data field
+            # Fallback: use created_at for older entries that have no JSON date
             "SELECT category, data, description, created_at FROM entries "
-            "WHERE user_id = ? AND date(created_at) = date(?)"
-            "ORDER BY created_at ASC",
-            (user_id, date),
+            "WHERE user_id = ? AND ("
+            "  json_extract(data, '$.date') = ? "
+            "  OR (json_extract(data, '$.date') IS NULL AND date(created_at) = ?)"
+            ") ORDER BY created_at ASC",
+            (user_id, date, date),
         )
         rows = await cur.fetchall()
 

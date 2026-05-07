@@ -69,6 +69,15 @@ FINANCIAL RULES:
 - Always save "currency" as the 3-letter code (KRW, USD, EUR, UZS, RUB).
 - For the description field use the SPECIFIC item name (e.g. "Kofe", "Bus bilet") not the category name.
 
+DATE RULES — always set "date" in the data field as YYYY-MM-DD:
+- bugun / today           → today's date
+- kecha / yesterday / ieri → yesterday's date
+- ertalab / this morning  → today's date
+- o'tgan hafta / last week → 7 days ago
+- If user says a specific date ("5 may", "May 5th", "7th") → use that date in current year/month
+- If no date mentioned    → today's date
+Today is: {date}
+
 Today: {date}
 """
 

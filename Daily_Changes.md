@@ -449,3 +449,24 @@
 
 #### bot/telegram_bot.py
 - Registered `file_handler` for `Document.ALL` (non-image documents)
+
+---
+
+### Bugfix | Financial Agent | Uzbek Dates + JSON Date Query
+
+**Files modified:** `core/brain.py`, `tools/entry_tools.py`
+
+**Bug:** "kecha ovqatlanishga 5900 won sarfladim" saved with today's date instead of yesterday's.
+**Root cause 1:** System prompt had no Uzbek date vocabulary — AI didn't know "kecha" = yesterday.
+**Root cause 2:** `get_daily_summary` queried `date(created_at)` (= insert time, always today) instead of the actual transaction date stored in `data["date"]`.
+
+**Fix 1 — core/brain.py:**
+- Added Uzbek date vocabulary to system prompt:
+  - bugun / today → today, kecha / yesterday → yesterday, o'tgan hafta → 7 days ago
+- Rule: always set `data["date"]` as YYYY-MM-DD when saving any entry
+- Today's date injected into prompt so AI can calculate relative dates correctly
+
+**Fix 2 — tools/entry_tools.py:**
+- `get_daily_summary` now queries `json_extract(data, '$.date')` (actual transaction date)
+- Falls back to `date(created_at)` for older entries without a JSON date field
+- `query_entries` search also includes the JSON date field
