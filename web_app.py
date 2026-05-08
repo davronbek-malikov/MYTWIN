@@ -84,6 +84,11 @@ async def change_mode(mode: str):
     return {"mode": mode}
 
 
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
+
+
 @app.post("/api/clear")
 async def clear_chat():
     brain.clear_history(_web_user_id)
@@ -119,4 +124,6 @@ async def transcribe(audio: UploadFile = File(...)):
 
 
 if __name__ == "__main__":
-    uvicorn.run("web_app:app", host="0.0.0.0", port=8000, reload=True)
+    import os
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run("web_app:app", host="0.0.0.0", port=port, reload=False)
