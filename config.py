@@ -8,7 +8,8 @@ OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
 OPENAI_MODEL: str = os.getenv("OPENAI_MODEL", "gpt-4o")
 OWNER_NAME: str = os.getenv("OWNER_NAME", "User")
 DATABASE_PATH: str = os.getenv("DATABASE_PATH", "twin.db")
-DATABASE_URL: str = os.getenv("DATABASE_URL", "")
+# Supabase / Neon / any PostgreSQL — use the pooler URL for Vercel
+DATABASE_URL: str  = os.getenv("DATABASE_URL", "")
 MAX_HISTORY: int = int(os.getenv("MAX_HISTORY", "40"))
 
 # Google Sheets integration (optional — leave blank to disable)

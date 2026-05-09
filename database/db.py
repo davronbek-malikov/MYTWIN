@@ -1,4 +1,5 @@
 import json
+import ssl
 import asyncpg
 import config
 from utils.logger import logger
@@ -9,7 +10,16 @@ _pool: asyncpg.Pool | None = None
 async def get_pool() -> asyncpg.Pool:
     global _pool
     if _pool is None:
-        _pool = await asyncpg.create_pool(config.DATABASE_URL, min_size=1, max_size=5)
+        # Supabase (and Neon) require SSL — build a permissive SSL context
+        ssl_ctx = ssl.create_default_context()
+        ssl_ctx.check_hostname = False
+        ssl_ctx.verify_mode   = ssl.CERT_NONE
+        _pool = await asyncpg.create_pool(
+            config.DATABASE_URL,
+            min_size=1,
+            max_size=5,
+            ssl=ssl_ctx,
+        )
     return _pool
 
 
