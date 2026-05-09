@@ -1,46 +1,32 @@
-import aiosqlite
-import config
+from database.db import get_pool
 
 
-async def save_memory(
-    user_id: int, key: str, value: str, category: str = "general"
-) -> str:
-    async with aiosqlite.connect(config.DATABASE_PATH) as db:
-        cur = await db.execute(
-            "SELECT id FROM memories WHERE user_id = ? AND key = ?", (user_id, key)
-        )
-        existing = await cur.fetchone()
+async def save_memory(user_id: int, key: str, value: str, category: str = "general") -> str:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        existing = await conn.fetchrow(
+            "SELECT id FROM memories WHERE user_id = $1 AND key = $2", user_id, key)
         if existing:
-            await db.execute(
-                "UPDATE memories SET value = ?, category = ?, updated_at = datetime('now') "
-                "WHERE user_id = ? AND key = ?",
-                (value, category, user_id, key),
-            )
+            await conn.execute(
+                "UPDATE memories SET value=$1, category=$2, updated_at=NOW() WHERE user_id=$3 AND key=$4",
+                value, category, user_id, key)
         else:
-            await db.execute(
-                "INSERT INTO memories (user_id, key, value, category) VALUES (?, ?, ?, ?)",
-                (user_id, key, value, category),
-            )
-        await db.commit()
+            await conn.execute(
+                "INSERT INTO memories (user_id, key, value, category) VALUES ($1,$2,$3,$4)",
+                user_id, key, value, category)
     return f"Saved: {key} = {value}"
 
 
-async def recall_memories(
-    user_id: int, category: str | None = None, search: str | None = None
-) -> list[dict]:
-    async with aiosqlite.connect(config.DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
-        base = "SELECT * FROM memories WHERE user_id = ?"
+async def recall_memories(user_id: int, category: str | None = None, search: str | None = None) -> list[dict]:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        q = "SELECT key, value, category FROM memories WHERE user_id = $1"
         params: list = [user_id]
-
+        i = 2
         if category:
-            base += " AND category = ?"
-            params.append(category)
+            q += f" AND category = ${i}"; params.append(category); i += 1
         if search:
-            base += " AND (key LIKE ? OR value LIKE ?)"
-            params += [f"%{search}%", f"%{search}%"]
-
-        base += " ORDER BY updated_at DESC LIMIT 50"
-        cur = await db.execute(base, params)
-        rows = await cur.fetchall()
-        return [dict(r) for r in rows]
+            q += f" AND (key ILIKE ${i} OR value ILIKE ${i})"; params.append(f"%{search}%"); i += 1
+        q += " ORDER BY updated_at DESC LIMIT 50"
+        rows = await conn.fetch(q, *params)
+    return [dict(r) for r in rows]

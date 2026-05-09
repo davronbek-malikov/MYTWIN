@@ -102,6 +102,7 @@ Today: {date}
 class Brain:
     def __init__(self) -> None:
         self.client = AsyncOpenAI(api_key=config.OPENAI_API_KEY)
+        # In-memory cache — also persisted to DB for serverless
         self._history: dict[int, list] = {}
 
     def _system_message(self, mode: str) -> dict:
@@ -114,6 +115,25 @@ class Brain:
             ),
         }
 
+    async def _get_history(self, user_id: int) -> list:
+        if user_id in self._history:
+            return self._history[user_id]
+        try:
+            from database.db import load_history
+            history = await load_history(user_id)
+            self._history[user_id] = history
+            return history
+        except Exception:
+            self._history[user_id] = []
+            return self._history[user_id]
+
+    async def _persist_history(self, user_id: int, history: list) -> None:
+        try:
+            from database.db import save_history
+            await save_history(user_id, history)
+        except Exception as e:
+            logger.error(f"History save error: {e}")
+
     async def think(
         self,
         user_id: int,
@@ -122,7 +142,7 @@ class Brain:
         image_data: bytes | None = None,
         image_mime: str = "image/jpeg",
     ) -> str:
-        history = self._history.setdefault(user_id, [])
+        history = await self._get_history(user_id)
 
         if image_data:
             b64 = base64.standard_b64encode(image_data).decode()
@@ -143,8 +163,10 @@ class Brain:
             return f"Something went wrong: {e}"
 
         if len(history) > config.MAX_HISTORY:
-            self._history[user_id] = history[-config.MAX_HISTORY:]
+            history = history[-config.MAX_HISTORY:]
+            self._history[user_id] = history
 
+        await self._persist_history(user_id, history)
         return result
 
     async def _agent_loop(self, user_id: int, mode: str, history: list) -> str:

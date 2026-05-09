@@ -123,6 +123,65 @@ async def transcribe(audio: UploadFile = File(...)):
         return {"transcript": "", "error": str(e)}
 
 
+# ── Telegram webhook (used in production on Vercel) ───────────────────────
+_tg_app = None
+
+async def _get_tg_app():
+    global _tg_app
+    if _tg_app:
+        return _tg_app
+    from telegram import Update
+    from telegram.ext import Application, MessageHandler, CommandHandler, CallbackQueryHandler, filters
+    from bot.handlers.text_handler import text_handler
+    from bot.handlers.voice_handler import voice_handler
+    from bot.handlers.image_handler import image_handler
+    from bot.handlers.file_handler import file_handler
+    from bot.handlers.command_handler import (
+        start_command, mode_command, clear_command,
+        stats_command, voice_command, sheet_command, callback_handler,
+    )
+    tg = Application.builder().token(config.TELEGRAM_BOT_TOKEN).build()
+    tg.add_handler(CommandHandler("start",  start_command))
+    tg.add_handler(CommandHandler("mode",   mode_command))
+    tg.add_handler(CommandHandler("clear",  clear_command))
+    tg.add_handler(CommandHandler("stats",  stats_command))
+    tg.add_handler(CommandHandler("voice",  voice_command))
+    tg.add_handler(CommandHandler("sheet",  sheet_command))
+    tg.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))
+    tg.add_handler(MessageHandler(filters.VOICE | filters.AUDIO, voice_handler))
+    tg.add_handler(MessageHandler(filters.PHOTO | filters.Document.IMAGE, image_handler))
+    tg.add_handler(MessageHandler(filters.Document.ALL & ~filters.Document.IMAGE, file_handler))
+    tg.add_handler(CallbackQueryHandler(callback_handler))
+    await tg.initialize()
+    _tg_app = tg
+    return tg
+
+
+@app.post("/telegram")
+async def telegram_webhook(request: Request):
+    from telegram import Update
+    data = await request.json()
+    tg   = await _get_tg_app()
+    update = Update.de_json(data, tg.bot)
+    await tg.process_update(update)
+    return {"ok": True}
+
+
+@app.get("/set-webhook")
+async def set_webhook(request: Request):
+    """Call once after deployment: /set-webhook?url=https://your-app.vercel.app"""
+    url = request.query_params.get("url")
+    if not url:
+        return {"error": "Pass ?url=https://your-vercel-url"}
+    import httpx
+    webhook_url = f"{url}/telegram"
+    r = httpx.get(
+        f"https://api.telegram.org/bot{config.TELEGRAM_BOT_TOKEN}/setWebhook",
+        params={"url": webhook_url},
+    )
+    return r.json()
+
+
 if __name__ == "__main__":
     import os
     port = int(os.getenv("PORT", 8000))

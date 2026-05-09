@@ -1,48 +1,64 @@
-import aiosqlite
+import json
+import asyncpg
 import config
 from utils.logger import logger
 
+_pool: asyncpg.Pool | None = None
+
+
+async def get_pool() -> asyncpg.Pool:
+    global _pool
+    if _pool is None:
+        _pool = await asyncpg.create_pool(config.DATABASE_URL, min_size=1, max_size=5)
+    return _pool
+
+
 _CREATE_SQL = """
 CREATE TABLE IF NOT EXISTS users (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    telegram_id INTEGER UNIQUE NOT NULL,
+    id          SERIAL PRIMARY KEY,
+    telegram_id BIGINT UNIQUE NOT NULL,
     username    TEXT,
     first_name  TEXT,
     mode        TEXT DEFAULT 'assistant',
-    created_at  TEXT DEFAULT (datetime('now'))
+    voice_enabled INTEGER DEFAULT 0,
+    created_at  TIMESTAMP DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS memories (
-    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    id         SERIAL PRIMARY KEY,
     user_id    INTEGER NOT NULL REFERENCES users(id),
     key        TEXT NOT NULL,
     value      TEXT NOT NULL,
     category   TEXT DEFAULT 'general',
-    created_at TEXT DEFAULT (datetime('now')),
-    updated_at TEXT DEFAULT (datetime('now'))
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS entries (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    id          SERIAL PRIMARY KEY,
     user_id     INTEGER NOT NULL REFERENCES users(id),
     category    TEXT NOT NULL,
     data        TEXT NOT NULL,
     description TEXT,
-    created_at  TEXT DEFAULT (datetime('now'))
+    created_at  TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS conversations (
+    user_id  INTEGER PRIMARY KEY REFERENCES users(id),
+    messages TEXT NOT NULL DEFAULT '[]',
+    updated_at TIMESTAMP DEFAULT NOW()
 );
 """
 
 
 async def init_db() -> None:
-    async with aiosqlite.connect(config.DATABASE_PATH) as db:
-        await db.executescript(_CREATE_SQL)
-        # Migration: add voice_enabled if not present
-        try:
-            await db.execute("ALTER TABLE users ADD COLUMN voice_enabled INTEGER DEFAULT 0")
-            await db.commit()
-        except Exception:
-            pass  # Column already exists
-    logger.info(f"Database ready at {config.DATABASE_PATH}")
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        for stmt in _CREATE_SQL.strip().split(";"):
+            stmt = stmt.strip()
+            if stmt:
+                await conn.execute(stmt)
+    logger.info("Database ready")
 
 
 async def get_or_create_user(
@@ -50,55 +66,65 @@ async def get_or_create_user(
     username: str | None = None,
     first_name: str | None = None,
 ) -> dict:
-    async with aiosqlite.connect(config.DATABASE_PATH) as db:
-        db.row_factory = aiosqlite.Row
-        cur = await db.execute(
-            "SELECT * FROM users WHERE telegram_id = ?", (telegram_id,)
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT * FROM users WHERE telegram_id = $1", telegram_id
         )
-        row = await cur.fetchone()
         if row:
             return dict(row)
-        await db.execute(
-            "INSERT INTO users (telegram_id, username, first_name) VALUES (?, ?, ?)",
-            (telegram_id, username, first_name),
+        await conn.execute(
+            "INSERT INTO users (telegram_id, username, first_name) VALUES ($1,$2,$3) ON CONFLICT DO NOTHING",
+            telegram_id, username, first_name,
         )
-        await db.commit()
-        cur = await db.execute(
-            "SELECT * FROM users WHERE telegram_id = ?", (telegram_id,)
-        )
-        return dict(await cur.fetchone())
+        row = await conn.fetchrow("SELECT * FROM users WHERE telegram_id = $1", telegram_id)
+        return dict(row)
 
 
 async def get_user_mode(telegram_id: int) -> str:
-    async with aiosqlite.connect(config.DATABASE_PATH) as db:
-        cur = await db.execute(
-            "SELECT mode FROM users WHERE telegram_id = ?", (telegram_id,)
-        )
-        row = await cur.fetchone()
-        return row[0] if row else "assistant"
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("SELECT mode FROM users WHERE telegram_id = $1", telegram_id)
+        return row["mode"] if row else "assistant"
 
 
 async def set_user_mode(telegram_id: int, mode: str) -> None:
-    async with aiosqlite.connect(config.DATABASE_PATH) as db:
-        await db.execute(
-            "UPDATE users SET mode = ? WHERE telegram_id = ?", (mode, telegram_id)
-        )
-        await db.commit()
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute("UPDATE users SET mode = $1 WHERE telegram_id = $2", mode, telegram_id)
 
 
 async def get_voice_enabled(telegram_id: int) -> bool:
-    async with aiosqlite.connect(config.DATABASE_PATH) as db:
-        cur = await db.execute(
-            "SELECT voice_enabled FROM users WHERE telegram_id = ?", (telegram_id,)
-        )
-        row = await cur.fetchone()
-        return bool(row[0]) if row else False
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("SELECT voice_enabled FROM users WHERE telegram_id = $1", telegram_id)
+        return bool(row["voice_enabled"]) if row else False
 
 
 async def set_voice_enabled(telegram_id: int, enabled: bool) -> None:
-    async with aiosqlite.connect(config.DATABASE_PATH) as db:
-        await db.execute(
-            "UPDATE users SET voice_enabled = ? WHERE telegram_id = ?",
-            (int(enabled), telegram_id),
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            "UPDATE users SET voice_enabled = $1 WHERE telegram_id = $2",
+            int(enabled), telegram_id,
         )
-        await db.commit()
+
+
+async def load_history(user_id: int) -> list:
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("SELECT messages FROM conversations WHERE user_id = $1", user_id)
+        if row:
+            return json.loads(row["messages"])
+        return []
+
+
+async def save_history(user_id: int, history: list) -> None:
+    trimmed = json.dumps(history[-config.MAX_HISTORY:], ensure_ascii=False)
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        await conn.execute(
+            """INSERT INTO conversations (user_id, messages) VALUES ($1, $2)
+               ON CONFLICT (user_id) DO UPDATE SET messages = $2, updated_at = NOW()""",
+            user_id, trimmed,
+        )
