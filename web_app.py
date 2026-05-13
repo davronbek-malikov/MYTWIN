@@ -226,6 +226,31 @@ async def api_news_refresh():
     return JSONResponse({"refreshed": True, "topics": len(data)})
 
 
+@app.get("/api/twin-stats")
+async def twin_stats():
+    from database.db import get_pool
+    try:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            entries_row = await conn.fetchrow("SELECT COUNT(*) as cnt FROM entries")
+            msgs_row    = await conn.fetchrow("SELECT messages FROM conversations WHERE user_id = (SELECT id FROM users WHERE telegram_id = 0 LIMIT 1)")
+        import json
+        entries_count = entries_row["cnt"] if entries_row else 0
+        msgs = json.loads(msgs_row["messages"]) if msgs_row and msgs_row["messages"] else []
+        user_msgs = [m for m in msgs if m.get("role") == "user"]
+        last_topic = user_msgs[-1]["content"][:60] if user_msgs else "No sessions yet"
+        if isinstance(last_topic, list):
+            last_topic = "Image/voice message"
+        return {
+            "entries_tracked": entries_count,
+            "sessions_observed": len(user_msgs),
+            "last_topic": last_topic,
+            "status": "learning",
+        }
+    except Exception as e:
+        return {"entries_tracked": 0, "sessions_observed": 0, "last_topic": "—", "status": "learning"}
+
+
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 8000))
     uvicorn.run("web_app:app", host="0.0.0.0", port=port, reload=False)
