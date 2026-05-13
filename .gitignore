@@ -12,3 +12,5 @@ venv/
 =6.0.0
 
 .vercel
+.swarm/
+.claude-flow/
