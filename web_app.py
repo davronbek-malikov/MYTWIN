@@ -216,7 +216,10 @@ async def set_webhook(request: Request):
 
 @app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request, error: str = "", success: str = ""):
-    allow_signup = not await any_user_exists()
+    try:
+        allow_signup = not await any_user_exists()
+    except Exception:
+        allow_signup = True
     return templates.TemplateResponse("login.html", {
         "request": request, "error": error,
         "success": success, "allow_signup": allow_signup,
@@ -229,7 +232,10 @@ async def login_post(request: Request):
     action = form.get("form", "login")
     email    = (form.get("email") or "").strip().lower()
     password = form.get("password") or ""
-    allow_signup = not await any_user_exists()
+    try:
+        allow_signup = not await any_user_exists()
+    except Exception:
+        allow_signup = True
 
     if action == "signup":
         confirm = form.get("confirm") or ""

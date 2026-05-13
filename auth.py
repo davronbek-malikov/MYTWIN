@@ -38,10 +38,15 @@ def verify_session(token: str, max_age: int = 86400 * 7) -> int | None:
 # ── DB helpers ────────────────────────────────────────────────────────────
 
 async def any_user_exists() -> bool:
-    pool = await get_pool()
-    async with pool.acquire() as conn:
-        row = await conn.fetchrow("SELECT COUNT(*) as cnt FROM auth_users")
-        return (row["cnt"] if row else 0) > 0
+    try:
+        from database.db import init_db
+        await init_db()          # ensure auth_users table exists
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            row = await conn.fetchrow("SELECT COUNT(*) as cnt FROM auth_users")
+            return (row["cnt"] if row else 0) > 0
+    except Exception:
+        return False             # table missing → allow signup
 
 async def get_user_by_email(email: str) -> dict | None:
     pool = await get_pool()
