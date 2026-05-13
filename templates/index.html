@@ -67,7 +67,11 @@
     text-align: left; font-family: inherit; transition: all .2s;
   }
   .side-btn:hover { border-color: var(--accent); color: var(--text); }
-  main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  .side-btn.news-active { border-color: #6366f1; color: #818cf8; background: rgba(99,102,241,0.08); }
+
+  /* ── Chat main ── */
+  main { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; }
+  #chat-view { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
   #messages {
     flex: 1; overflow-y: auto; padding: 24px;
     display: flex; flex-direction: column; gap: 16px; scroll-behavior: smooth;
@@ -90,8 +94,6 @@
   .typing span { width: 5px; height: 5px; background: var(--accent); border-radius: 50%; animation: bounce 1.2s infinite; }
   .typing span:nth-child(2){animation-delay:.2s} .typing span:nth-child(3){animation-delay:.4s}
   @keyframes bounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-5px)} }
-
-  /* Status bar */
   #status-bar {
     display: flex; align-items: center; justify-content: center; gap: 10px;
     padding: 7px 20px; font-size: 13px; min-height: 36px; flex-shrink: 0;
@@ -110,12 +112,8 @@
   .mini-bar:nth-child(4){height:10px;animation-delay:.1s}
   .mini-bar:nth-child(5){height:4px;animation-delay:0s}
   @keyframes mwave { 0%,100%{transform:scaleY(.4)} 50%{transform:scaleY(1)} }
-
-  /* Volume meter */
   #vol-bar-wrap { width: 80px; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
   #vol-bar { height: 100%; background: var(--accent2); border-radius: 2px; width: 0%; transition: width .1s; }
-
-  /* Input bar */
   .input-bar {
     padding: 12px 18px; background: var(--sidebar); border-top: 1px solid var(--border);
     display: flex; gap: 10px; align-items: flex-end;
@@ -128,7 +126,6 @@
   }
   #input:focus { border-color: var(--accent); }
   #input::placeholder { color: var(--muted); }
-  #input.interim { color: var(--muted); font-style: italic; }
   .bar-btn {
     width: 42px; height: 42px; border: none; border-radius: 11px;
     cursor: pointer; display: flex; align-items: center; justify-content: center;
@@ -151,6 +148,166 @@
     border-radius: 20px; font-size: 13px; cursor: pointer; transition: all .2s;
   }
   .chip:hover { border-color: var(--accent); color: var(--accent2); }
+
+  /* ── NEWS PANEL (white theme) ── */
+  #news-view {
+    display: none;
+    flex: 1;
+    flex-direction: column;
+    overflow: hidden;
+    background: #f1f5f9;
+  }
+  #news-view.active { display: flex; }
+
+  .news-topbar {
+    background: #fff;
+    border-bottom: 1px solid #e2e8f0;
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+  .news-topbar-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #1e293b;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-right: 4px;
+  }
+  .news-pill {
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1.5px solid #e2e8f0;
+    background: #fff;
+    color: #64748b;
+    transition: all .15s;
+    white-space: nowrap;
+  }
+  .news-pill:hover { background: #f8fafc; }
+  .news-pill.active { background: #6366f1; color: #fff; border-color: #6366f1; }
+  .news-refresh {
+    margin-left: auto;
+    padding: 6px 14px;
+    background: #6366f1;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity .2s;
+    white-space: nowrap;
+  }
+  .news-refresh:hover { opacity: 0.85; }
+  .news-refresh:disabled { opacity: 0.5; cursor: not-allowed; }
+  #news-updated { font-size: 11px; color: #94a3b8; white-space: nowrap; }
+
+  #news-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 24px;
+  }
+  #news-content::-webkit-scrollbar { width: 4px; }
+  #news-content::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+
+  .news-section { margin-bottom: 32px; }
+  .news-section.hidden { display: none; }
+
+  .news-section-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid currentColor;
+  }
+  .news-section-name { font-size: 15px; font-weight: 700; color: #1e293b; }
+  .news-section-count { font-size: 11px; color: #94a3b8; background: #f1f5f9; padding: 2px 7px; border-radius: 10px; margin-left: 2px; }
+  .news-section-time { font-size: 11px; color: #94a3b8; margin-left: auto; }
+
+  .news-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+
+  .news-card {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    transition: box-shadow .2s, transform .15s;
+    border-left-width: 3px;
+  }
+  .news-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.1); transform: translateY(-1px); }
+
+  .news-card-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .news-source {
+    font-size: 10px; font-weight: 700; letter-spacing: .4px;
+    color: #94a3b8; text-transform: uppercase;
+    background: #f8fafc; padding: 2px 7px; border-radius: 5px;
+  }
+  .news-date { font-size: 11px; color: #94a3b8; }
+
+  .news-card-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1e293b;
+    line-height: 1.45;
+    text-decoration: none;
+    display: block;
+  }
+  .news-card-title:hover { color: #6366f1; }
+
+  .news-card-summary {
+    font-size: 13px;
+    color: #475569;
+    line-height: 1.6;
+    flex: 1;
+  }
+
+  .news-card-link {
+    font-size: 12px;
+    font-weight: 600;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    margin-top: auto;
+    padding-top: 8px;
+    border-top: 1px solid #f1f5f9;
+    transition: opacity .15s;
+  }
+  .news-card-link:hover { opacity: 0.75; }
+
+  /* Loading state */
+  .news-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    gap: 16px;
+    color: #64748b;
+    font-size: 14px;
+  }
+  .news-spinner {
+    width: 36px; height: 36px;
+    border: 3px solid #e2e8f0;
+    border-top-color: #6366f1;
+    border-radius: 50%;
+    animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .news-empty { text-align: center; padding: 32px; color: #94a3b8; font-size: 13px; }
 </style>
 </head>
 <body>
@@ -181,6 +338,10 @@
       <div class="label">Recent Entries</div>
       <div id="entries-list"><div style="color:var(--muted);font-size:12px">Loading...</div></div>
     </div>
+
+    <!-- News Feed button -->
+    <button class="side-btn" id="news-toggle-btn" onclick="toggleNewsView()">📰 News Feed</button>
+
     <button class="side-btn" onclick="clearChat()">🗑 Clear conversation</button>
     {% if sheet_url %}
     <a href="{{ sheet_url }}" target="_blank" style="text-decoration:none">
@@ -192,84 +353,219 @@
   </aside>
 
   <main>
-    <div id="messages">
-      <div class="welcome" id="welcome">
-        <h2>Hello, {{ owner }} 👋</h2>
-        <p>Just start speaking — I'm always listening.<br>
-           Works in Brave, Chrome, Edge and Firefox.</p>
-        <div class="chips">
-          <div class="chip" onclick="quickSend('What can you do?')">✨ What can you do?</div>
-          <div class="chip" onclick="quickSend('Give me a monthly report')">📊 Monthly report</div>
-          <div class="chip" onclick="quickSend(\"What's the weather in Tashkent?\")">🌤 Weather</div>
-          <div class="chip" onclick="quickSend('What is the latest news?')">📰 News</div>
-          <div class="chip" onclick="quickSend('Convert 100 USD to UZS')">💱 Currency</div>
-          <div class="chip" onclick="quickSend('Show my recent entries')">📋 My entries</div>
+    <!-- ── Chat view ── -->
+    <div id="chat-view" style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
+      <div id="messages">
+        <div class="welcome" id="welcome">
+          <h2>Hello, {{ owner }} 👋</h2>
+          <p>Just start speaking — I'm always listening.<br>
+             Works in Brave, Chrome, Edge and Firefox.</p>
+          <div class="chips">
+            <div class="chip" onclick="quickSend('What can you do?')">✨ What can you do?</div>
+            <div class="chip" onclick="quickSend('Give me a monthly report')">📊 Monthly report</div>
+            <div class="chip" onclick="quickSend(\"What's the weather in Tashkent?\")">🌤 Weather</div>
+            <div class="chip" onclick="quickSend('Give me AI news briefing')">📰 AI News</div>
+            <div class="chip" onclick="quickSend('Convert 100 USD to UZS')">💱 Currency</div>
+            <div class="chip" onclick="quickSend('Show my recent entries')">📋 My entries</div>
+          </div>
+        </div>
+      </div>
+
+      <div id="activate-overlay" style="
+        position:absolute; inset:0; z-index:50;
+        display:flex; flex-direction:column; align-items:center; justify-content:center;
+        background:rgba(8,12,20,.88); gap:16px; cursor:pointer;"
+        onclick="activateVoice()">
+        <div style="font-size:48px">🎤</div>
+        <div style="font-size:18px;font-weight:600;color:#e2e8f0">Click anywhere to activate voice</div>
+        <div style="font-size:13px;color:#64748b">Required once per session by the browser</div>
+      </div>
+
+      <div id="status-bar">
+        <span id="status-icon">🎤</span>
+        <span id="status-text">Starting microphone...</span>
+        <div id="vol-bar-wrap" style="display:none"><div id="vol-bar"></div></div>
+      </div>
+
+      <div class="input-bar">
+        <button id="voice-toggle" class="bar-btn on" onclick="toggleAutoVoice()">🎤 Voice ON</button>
+        <textarea id="input" rows="1" placeholder="Or type here and press Enter..."
+          onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+        <button id="send-btn" class="bar-btn" onclick="sendManual()">➤</button>
+      </div>
+    </div>
+
+    <!-- ── News view (white theme, inside My Twin) ── -->
+    <div id="news-view">
+      <div class="news-topbar">
+        <div class="news-topbar-title">📡 News Feed</div>
+        <button class="news-pill active" data-key="all" onclick="filterNews('all',this)">All</button>
+        <button class="news-pill" data-key="ai_llm"    onclick="filterNews('ai_llm',this)">🤖 AI & LLMs</button>
+        <button class="news-pill" data-key="ai_agents" onclick="filterNews('ai_agents',this)">⚡ Agents</button>
+        <button class="news-pill" data-key="tech"      onclick="filterNews('tech',this)">💡 Tech</button>
+        <button class="news-pill" data-key="education" onclick="filterNews('education',this)">📚 Education</button>
+        <button class="news-pill" data-key="faang"     onclick="filterNews('faang',this)">🏢 Big Tech</button>
+        <button class="news-pill" data-key="asia_tech" onclick="filterNews('asia_tech',this)">🌏 Asia</button>
+        <button class="news-pill" data-key="startups"  onclick="filterNews('startups',this)">🚀 Startups</button>
+        <button class="news-pill" data-key="new_software" onclick="filterNews('new_software',this)">🛠️ Software</button>
+        <button class="news-pill" data-key="new_llms"  onclick="filterNews('new_llms',this)">🧠 LLMs</button>
+        <span id="news-updated"></span>
+        <button class="news-refresh" id="news-refresh-btn" onclick="loadNews(true)">↻ Refresh</button>
+      </div>
+      <div id="news-content">
+        <div class="news-loading" id="news-loader">
+          <div class="news-spinner"></div>
+          <div>Fetching & summarizing news with AI…<br><small style="color:#94a3b8">First load takes ~20 seconds</small></div>
         </div>
       </div>
     </div>
 
-    <!-- One-time activation overlay -->
-    <div id="activate-overlay" style="
-      position:absolute; inset:0; z-index:50;
-      display:flex; flex-direction:column; align-items:center; justify-content:center;
-      background:rgba(8,12,20,.88); gap:16px; cursor:pointer;"
-      onclick="activateVoice()">
-      <div style="font-size:48px">🎤</div>
-      <div style="font-size:18px;font-weight:600;color:#e2e8f0">Click anywhere to activate voice</div>
-      <div style="font-size:13px;color:#64748b">Required once per session by the browser</div>
-    </div>
-
-    <!-- Status bar -->
-    <div id="status-bar">
-      <span id="status-icon">🎤</span>
-      <span id="status-text">Starting microphone...</span>
-      <div id="vol-bar-wrap" style="display:none"><div id="vol-bar"></div></div>
-    </div>
-
-    <div class="input-bar">
-      <button id="voice-toggle" class="bar-btn on" onclick="toggleAutoVoice()">🎤 Voice ON</button>
-      <textarea id="input" rows="1" placeholder="Or type here and press Enter..."
-        onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
-      <button id="send-btn" class="bar-btn" onclick="sendManual()">➤</button>
-    </div>
   </main>
 </div>
 
 <script>
 // ── Config ────────────────────────────────────────────────────────────────
-const SPEECH_THRESHOLD = 18;   // volume 0-255; raise if picks up background noise
-const SILENCE_MS       = 1400; // ms of quiet before sending
-const MIN_RECORD_MS    = 600;  // ignore clips shorter than this
+const SPEECH_THRESHOLD = 18;
+const SILENCE_MS       = 1400;
+const MIN_RECORD_MS    = 600;
 
 // ── State ─────────────────────────────────────────────────────────────────
 let currentMode  = '{{ mode }}';
 let autoVoice    = true;
 let isProcessing = false;
+let mediaStream = null, audioCtx = null, analyser = null;
+let mediaRecorder = null, chunks = [], isRecording = false;
+let recordStart = 0, silenceTimer = null, vadInterval = null;
 
-let mediaStream    = null;
-let audioCtx       = null;
-let analyser       = null;
-let mediaRecorder  = null;
-let chunks         = [];
-let isRecording    = false;
-let recordStart    = 0;
-let silenceTimer   = null;
-let vadInterval    = null;
+// ── News state ─────────────────────────────────────────────────────────────
+let newsData = [];
+let newsLoaded = false;
+let newsFilter = 'all';
 
-// ── Status bar ────────────────────────────────────────────────────────────
+// ── News view toggle ────────────────────────────────────────────────────────
+function toggleNewsView() {
+  const newsView = document.getElementById('news-view');
+  const chatView = document.getElementById('chat-view');
+  const btn = document.getElementById('news-toggle-btn');
+  const isOpen = newsView.classList.contains('active');
+
+  if (isOpen) {
+    newsView.classList.remove('active');
+    chatView.style.display = 'flex';
+    btn.classList.remove('news-active');
+    btn.textContent = '📰 News Feed';
+  } else {
+    chatView.style.display = 'none';
+    newsView.classList.add('active');
+    btn.classList.add('news-active');
+    btn.textContent = '💬 Back to Chat';
+    if (!newsLoaded) loadNews();
+  }
+}
+
+// ── Filter ─────────────────────────────────────────────────────────────────
+function filterNews(key, btn) {
+  newsFilter = key;
+  document.querySelectorAll('.news-pill').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.news-section').forEach(s => {
+    s.classList.toggle('hidden', key !== 'all' && s.dataset.key !== key);
+  });
+}
+
+// ── Fetch news ─────────────────────────────────────────────────────────────
+async function loadNews(force = false) {
+  const btn = document.getElementById('news-refresh-btn');
+  const content = document.getElementById('news-content');
+  btn.disabled = true;
+  btn.textContent = '↻ Loading…';
+
+  if (force) {
+    content.innerHTML = '<div class="news-loading"><div class="news-spinner"></div><div>Refreshing news…</div></div>';
+  }
+
+  try {
+    const url = force ? '/api/news?refresh=1' : '/api/news';
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('Server error ' + res.status);
+    newsData = await res.json();
+    renderNews(newsData);
+    newsLoaded = true;
+    document.getElementById('news-updated').textContent =
+      'Updated ' + new Date().toLocaleTimeString('en-US', {hour:'2-digit', minute:'2-digit'});
+  } catch(e) {
+    content.innerHTML = `<div class="news-empty">⚠️ Could not load news: ${e.message}<br><br>
+      <button onclick="loadNews(true)" style="padding:8px 16px;border-radius:8px;background:#6366f1;color:#fff;border:none;cursor:pointer;font-size:13px">Try again</button></div>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '↻ Refresh';
+  }
+}
+
+function formatDate(d) {
+  if (!d) return '';
+  const dt = new Date(d);
+  return isNaN(dt) ? d : dt.toLocaleDateString('en-US', {month:'short', day:'numeric'});
+}
+
+function renderNews(data) {
+  const content = document.getElementById('news-content');
+  if (!data || !data.length) {
+    content.innerHTML = '<div class="news-empty">No news found. Try refreshing.</div>';
+    return;
+  }
+
+  let html = '';
+  for (const topic of data) {
+    const articles = topic.articles || [];
+    const color = topic.color || '#6366f1';
+    const hidden = newsFilter !== 'all' && newsFilter !== topic.key ? ' hidden' : '';
+    html += `<div class="news-section${hidden}" data-key="${topic.key}">
+      <div class="news-section-header" style="color:${color}">
+        <span>${topic.emoji || '📰'}</span>
+        <span class="news-section-name">${topic.name}</span>
+        <span class="news-section-count">${articles.length} articles</span>
+        <span class="news-section-time">${topic.fetched_str || ''}</span>
+      </div>
+      <div class="news-cards">`;
+
+    if (!articles.length) {
+      html += `<div class="news-empty" style="grid-column:1/-1">No articles found for this topic right now.</div>`;
+    } else {
+      for (const a of articles) {
+        const title = (a.title || '').replace(/</g,'&lt;');
+        const summary = (a.summary || '').replace(/</g,'&lt;');
+        const source = (a.source || '').replace(/</g,'&lt;');
+        html += `<div class="news-card" style="border-left-color:${color}">
+          <div class="news-card-meta">
+            <span class="news-source">${source.toUpperCase()}</span>
+            <span class="news-date">${formatDate(a.date)}</span>
+          </div>
+          <a class="news-card-title" href="${a.url}" target="_blank" rel="noopener">${title}</a>
+          <p class="news-card-summary">${summary}</p>
+          <a class="news-card-link" href="${a.url}" target="_blank" rel="noopener" style="color:${color}">
+            Read full article →
+          </a>
+        </div>`;
+      }
+    }
+    html += `</div></div>`;
+  }
+  content.innerHTML = html;
+}
+
+// ── Status bar ─────────────────────────────────────────────────────────────
 function setStatus(state, text) {
   const bar = document.getElementById('status-bar');
   bar.className = state;
   document.getElementById('status-text').textContent = text;
   const icon = document.getElementById('status-icon');
   const vol  = document.getElementById('vol-bar-wrap');
-
   if (state === 'listening') {
     icon.innerHTML = '<div class="mini-wave"><div class="mini-bar"></div><div class="mini-bar"></div><div class="mini-bar"></div><div class="mini-bar"></div><div class="mini-bar"></div></div>';
     vol.style.display = 'block';
   } else if (state === 'recording') {
-    icon.innerHTML = '🔴';
-    vol.style.display = 'block';
+    icon.innerHTML = '🔴'; vol.style.display = 'block';
   } else if (state === 'thinking') {
     icon.innerHTML = '🧠'; vol.style.display = 'none';
   } else if (state === 'speaking') {
@@ -279,194 +575,121 @@ function setStatus(state, text) {
   }
 }
 
-// ── Microphone init ───────────────────────────────────────────────────────
+// ── Mic ───────────────────────────────────────────────────────────────────
 async function initMic() {
   try {
     mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-    audioCtx    = new (window.AudioContext || window.webkitAudioContext)();
-    analyser    = audioCtx.createAnalyser();
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    analyser = audioCtx.createAnalyser();
     analyser.fftSize = 512;
     const src = audioCtx.createMediaStreamSource(mediaStream);
     src.connect(analyser);
     startVAD();
     setStatus('listening', 'Listening — just speak');
   } catch(e) {
-    autoVoice = false;
-    updateToggleBtn();
-    // Show fix instructions directly in the UI
+    autoVoice = false; updateToggleBtn();
     document.getElementById('status-bar').innerHTML = `
       <span>🔒</span>
-      <span style="color:#f59e0b">
-        Microphone blocked — check two things:
-        (1) Click the <b>🔒 lock</b> in address bar → Microphone → <b>Allow</b>.
-        (2) Windows: Start → Settings → Privacy → Microphone → turn <b>ON</b> for Brave.
-        Then refresh.
-      </span>`;
+      <span style="color:#f59e0b">Microphone blocked — Click 🔒 in address bar → Microphone → Allow. Then refresh.</span>`;
   }
 }
-
-// ── Volume helper ─────────────────────────────────────────────────────────
 function getVolume() {
   const data = new Uint8Array(analyser.frequencyBinCount);
   analyser.getByteFrequencyData(data);
-  return data.reduce((a, b) => a + b, 0) / data.length;
+  return data.reduce((a,b)=>a+b,0)/data.length;
 }
-
-// ── Voice activity detection ──────────────────────────────────────────────
 function startVAD() {
   clearInterval(vadInterval);
   vadInterval = setInterval(() => {
     if (!autoVoice || isProcessing || !analyser) return;
-
     const vol = getVolume();
-    // Show volume bar
-    document.getElementById('vol-bar').style.width = Math.min(vol / 50 * 100, 100) + '%';
-
+    document.getElementById('vol-bar').style.width = Math.min(vol/50*100,100)+'%';
     if (vol > SPEECH_THRESHOLD) {
-      clearTimeout(silenceTimer);
-      silenceTimer = null;
+      clearTimeout(silenceTimer); silenceTimer = null;
       if (!isRecording) startRecording();
     } else if (isRecording) {
-      if (!silenceTimer) {
-        silenceTimer = setTimeout(() => {
-          silenceTimer = null;
-          stopAndSend();
-        }, SILENCE_MS);
-      }
+      if (!silenceTimer) silenceTimer = setTimeout(()=>{ silenceTimer=null; stopAndSend(); }, SILENCE_MS);
     }
   }, 80);
 }
-
-// ── Recording ─────────────────────────────────────────────────────────────
 function startRecording() {
   chunks = [];
-  const mime = ['audio/webm', 'audio/ogg', 'audio/mp4']
-    .find(t => MediaRecorder.isTypeSupported(t)) || '';
-  mediaRecorder = new MediaRecorder(mediaStream, mime ? { mimeType: mime } : {});
-  mediaRecorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+  const mime = ['audio/webm','audio/ogg','audio/mp4'].find(t=>MediaRecorder.isTypeSupported(t))||'';
+  mediaRecorder = new MediaRecorder(mediaStream, mime?{mimeType:mime}:{});
+  mediaRecorder.ondataavailable = e=>{ if(e.data.size>0) chunks.push(e.data); };
   mediaRecorder.start(100);
-  isRecording  = true;
-  recordStart  = Date.now();
+  isRecording = true; recordStart = Date.now();
   setStatus('recording', 'Recording...');
 }
-
 async function stopAndSend() {
   if (!isRecording || !mediaRecorder) return;
   isRecording = false;
-
   const elapsed = Date.now() - recordStart;
-  await new Promise(r => { mediaRecorder.onstop = r; mediaRecorder.stop(); });
-
-  if (elapsed < MIN_RECORD_MS || chunks.length === 0) {
-    setStatus('listening', 'Listening — just speak');
-    return;
-  }
-
-  const blob = new Blob(chunks, { type: mediaRecorder.mimeType || 'audio/webm' });
+  await new Promise(r=>{ mediaRecorder.onstop=r; mediaRecorder.stop(); });
+  if (elapsed < MIN_RECORD_MS || chunks.length===0) { setStatus('listening','Listening — just speak'); return; }
+  const blob = new Blob(chunks, {type: mediaRecorder.mimeType||'audio/webm'});
   chunks = [];
-
-  if (blob.size < 500) { setStatus('listening', 'Listening — just speak'); return; }
-
-  // Send to Whisper
-  isProcessing = true;
-  setStatus('thinking', 'Transcribing...');
-
-  const fd = new FormData();
-  fd.append('audio', blob, 'audio.webm');
-
+  if (blob.size < 500) { setStatus('listening','Listening — just speak'); return; }
+  isProcessing = true; setStatus('thinking','Transcribing...');
+  const fd = new FormData(); fd.append('audio', blob, 'audio.webm');
   try {
-    const res  = await fetch('/api/transcribe', { method: 'POST', body: fd });
+    const res  = await fetch('/api/transcribe',{method:'POST',body:fd});
     const data = await res.json();
-    const text = (data.transcript || '').trim();
-
-    if (text) {
-      document.getElementById('input').value = text;
-      await sendMessage(text);
-    } else {
-      isProcessing = false;
-      setStatus('listening', 'Listening — just speak');
-    }
-  } catch(e) {
-    isProcessing = false;
-    setStatus('listening', 'Listening — just speak');
-  }
+    const text = (data.transcript||'').trim();
+    if (text) { document.getElementById('input').value=text; await sendMessage(text); }
+    else { isProcessing=false; setStatus('listening','Listening — just speak'); }
+  } catch(e) { isProcessing=false; setStatus('listening','Listening — just speak'); }
 }
 
 // ── Send message ──────────────────────────────────────────────────────────
 async function sendMessage(text) {
   if (!text) return;
   isProcessing = true;
-
-  document.getElementById('input').value = '';
-  document.getElementById('input').style.height = 'auto';
-  hideWelcome();
-  appendMsg('user', text);
+  document.getElementById('input').value='';
+  document.getElementById('input').style.height='auto';
+  hideWelcome(); appendMsg('user',text);
   const typingEl = appendTyping();
-  setStatus('thinking', 'Thinking...');
+  setStatus('thinking','Thinking...');
   document.getElementById('send-btn').disabled = true;
-
   try {
-    const res  = await fetch('/api/chat', {
-      method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ message: text, mode: currentMode })
-    });
+    const res  = await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text,mode:currentMode})});
     const data = await res.json();
-    typingEl.remove();
-    appendMsg('twin', data.response);
+    typingEl.remove(); appendMsg('twin',data.response);
     loadStats(); loadEntries();
     await speakResponse(data.response);
-  } catch(e) {
-    typingEl.remove();
-    appendMsg('twin', '⚠️ Error connecting. Is the server running?');
-  } finally {
-    isProcessing = false;
-    document.getElementById('send-btn').disabled = false;
-    if (autoVoice) setStatus('listening', 'Listening — just speak');
-    else setStatus('', 'Voice off — type your message.');
+  } catch(e) { typingEl.remove(); appendMsg('twin','⚠️ Error connecting. Is the server running?'); }
+  finally {
+    isProcessing=false; document.getElementById('send-btn').disabled=false;
+    if(autoVoice) setStatus('listening','Listening — just speak');
+    else setStatus('','Voice off — type your message.');
   }
 }
-
-function sendManual() {
-  const text = document.getElementById('input').value.trim();
-  if (text) sendMessage(text);
-}
+function sendManual() { const t=document.getElementById('input').value.trim(); if(t) sendMessage(t); }
 function quickSend(text) { sendMessage(text); }
 
 // ── TTS ───────────────────────────────────────────────────────────────────
 async function speakResponse(text) {
-  setStatus('speaking', 'Speaking...');
+  setStatus('speaking','Speaking...');
   try {
-    const res = await fetch('/api/tts', {
-      method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ text })
-    });
+    const res = await fetch('/api/tts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});
     if (!res.ok) return;
     const blob = await res.blob();
     const url  = URL.createObjectURL(blob);
-    await new Promise(resolve => {
+    await new Promise(resolve=>{
       const audio = new Audio(url);
-      audio.onended = () => { URL.revokeObjectURL(url); resolve(); };
+      audio.onended = ()=>{ URL.revokeObjectURL(url); resolve(); };
       audio.onerror = resolve;
       audio.play().catch(resolve);
     });
-  } catch(e) {}
+  } catch(e){}
 }
 
 // ── Voice toggle ──────────────────────────────────────────────────────────
 async function toggleAutoVoice() {
-  if (!autoVoice && !mediaStream) {
-    autoVoice = true; updateToggleBtn();
-    await initMic(); return;
-  }
-  autoVoice = !autoVoice;
-  updateToggleBtn();
-  if (!autoVoice) {
-    clearInterval(vadInterval);
-    setStatus('', 'Voice off — type your message.');
-  } else {
-    startVAD();
-    setStatus('listening', 'Listening — just speak');
-  }
+  if (!autoVoice && !mediaStream) { autoVoice=true; updateToggleBtn(); await initMic(); return; }
+  autoVoice = !autoVoice; updateToggleBtn();
+  if (!autoVoice) { clearInterval(vadInterval); setStatus('','Voice off — type your message.'); }
+  else { startVAD(); setStatus('listening','Listening — just speak'); }
 }
 function updateToggleBtn() {
   const btn = document.getElementById('voice-toggle');
@@ -479,8 +702,7 @@ function appendMsg(role, text) {
   const msgs = document.getElementById('messages');
   const div  = document.createElement('div');
   div.className = `msg ${role}`;
-  div.innerHTML = `<div class="msg-avatar">${role==='twin'?'🤖':'👤'}</div>
-    <div class="msg-bubble">${escapeHtml(text)}</div>`;
+  div.innerHTML = `<div class="msg-avatar">${role==='twin'?'🤖':'👤'}</div><div class="msg-bubble">${escapeHtml(text)}</div>`;
   msgs.appendChild(div); msgs.scrollTop = msgs.scrollHeight;
   return div;
 }
@@ -488,14 +710,11 @@ function appendTyping() {
   const msgs = document.getElementById('messages');
   const div  = document.createElement('div');
   div.className = 'msg twin';
-  div.innerHTML = `<div class="msg-avatar">🤖</div>
-    <div class="msg-bubble"><div class="typing"><span></span><span></span><span></span></div></div>`;
+  div.innerHTML = `<div class="msg-avatar">🤖</div><div class="msg-bubble"><div class="typing"><span></span><span></span><span></span></div></div>`;
   msgs.appendChild(div); msgs.scrollTop = msgs.scrollHeight;
   return div;
 }
-function escapeHtml(t) {
-  return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
-}
+function escapeHtml(t) { return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>'); }
 function hideWelcome() { const w=document.getElementById('welcome'); if(w) w.remove(); }
 function handleKey(e) { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendManual();} }
 function autoResize(el) { el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,120)+'px'; }
@@ -504,7 +723,7 @@ async function setMode(mode, btn) {
   currentMode = mode;
   document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('active'));
   btn.classList.add('active');
-  await fetch(`/api/mode/${mode}`, {method:'POST'});
+  await fetch(`/api/mode/${mode}`,{method:'POST'});
 }
 async function clearChat() {
   await fetch('/api/clear',{method:'POST'});
@@ -536,13 +755,10 @@ async function loadEntries() {
 
 // ── Boot ──────────────────────────────────────────────────────────────────
 loadStats(); loadEntries();
-
 async function activateVoice() {
   document.getElementById('activate-overlay').style.display = 'none';
   await initMic();
 }
-
-// Position overlay inside main only
 document.querySelector('main').style.position = 'relative';
 </script>
 </body>
