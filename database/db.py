@@ -153,6 +153,15 @@ CREATE TABLE IF NOT EXISTS conversations (
     messages TEXT NOT NULL DEFAULT '[]',
     updated_at TIMESTAMP DEFAULT NOW()
 );
+
+CREATE TABLE IF NOT EXISTS auth_users (
+    id             SERIAL PRIMARY KEY,
+    email          TEXT UNIQUE NOT NULL,
+    password_hash  TEXT NOT NULL,
+    reset_token    TEXT,
+    reset_expiry   TIMESTAMP WITH TIME ZONE,
+    created_at     TIMESTAMP DEFAULT NOW()
+);
 """
 
 _SQLITE_CREATE_SQL = """
@@ -189,6 +198,15 @@ CREATE TABLE IF NOT EXISTS conversations (
     user_id    INTEGER PRIMARY KEY REFERENCES users(id),
     messages   TEXT NOT NULL DEFAULT '[]',
     updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS auth_users (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    email          TEXT UNIQUE NOT NULL,
+    password_hash  TEXT NOT NULL,
+    reset_token    TEXT,
+    reset_expiry   TEXT,
+    created_at     TEXT DEFAULT CURRENT_TIMESTAMP
 );
 """
 

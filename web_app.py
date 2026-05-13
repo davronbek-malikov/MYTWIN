@@ -19,6 +19,12 @@ from database.db import (
 )
 from tools.entry_tools import get_summary, query_entries
 from utils.logger import logger
+from fastapi.responses import RedirectResponse
+from auth import (
+    any_user_exists, get_user_by_email, create_user, verify_password,
+    create_session, verify_session, create_reset_token, apply_reset,
+    send_reset_email, change_password as auth_change_password,
+)
 from agents.news_agent import fetch_all as news_fetch_all, fetch_topic as news_fetch_topic, TOPICS as NEWS_TOPICS, invalidate_cache as news_invalidate
 
 _WEB_TELEGRAM_ID = 0
@@ -42,6 +48,20 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 templates = Jinja2Templates(directory="templates")
+
+
+@app.middleware("http")
+async def auth_middleware(request: Request, call_next):
+    PUBLIC_PATHS = {"/login", "/logout", "/forgot-password", "/health", "/telegram", "/set-webhook"}
+    path = request.url.path
+    if path in PUBLIC_PATHS or path.startswith("/reset-password") or path.startswith("/api/news"):
+        return await call_next(request)
+    session = request.cookies.get("session")
+    user_id = verify_session(session) if session else None
+    if not user_id:
+        return RedirectResponse("/login", status_code=302)
+    request.state.user_id = user_id
+    return await call_next(request)
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -190,6 +210,114 @@ async def set_webhook(request: Request):
         params={"url": webhook_url},
     )
     return r.json()
+
+
+# ── Auth routes ──────────────────────────────────────────────────────────────
+
+@app.get("/login", response_class=HTMLResponse)
+async def login_page(request: Request, error: str = "", success: str = ""):
+    allow_signup = not await any_user_exists()
+    return templates.TemplateResponse("login.html", {
+        "request": request, "error": error,
+        "success": success, "allow_signup": allow_signup,
+    })
+
+
+@app.post("/login", response_class=HTMLResponse)
+async def login_post(request: Request):
+    form = await request.form()
+    action = form.get("form", "login")
+    email    = (form.get("email") or "").strip().lower()
+    password = form.get("password") or ""
+    allow_signup = not await any_user_exists()
+
+    if action == "signup":
+        confirm = form.get("confirm") or ""
+        if password != confirm:
+            return templates.TemplateResponse("login.html", {"request": request, "error": "Passwords don't match", "success": "", "allow_signup": allow_signup})
+        if len(password) < 8:
+            return templates.TemplateResponse("login.html", {"request": request, "error": "Password must be at least 8 characters", "success": "", "allow_signup": allow_signup})
+        try:
+            user = await create_user(email, password)
+        except ValueError as e:
+            return templates.TemplateResponse("login.html", {"request": request, "error": str(e), "success": "", "allow_signup": allow_signup})
+        resp = RedirectResponse("/", status_code=302)
+        resp.set_cookie("session", create_session(user["id"]), httponly=True, samesite="lax", max_age=86400 * 7)
+        return resp
+
+    user = await get_user_by_email(email)
+    if not user or not verify_password(password, user["password_hash"]):
+        return templates.TemplateResponse("login.html", {"request": request, "error": "Invalid email or password", "success": "", "allow_signup": allow_signup})
+    resp = RedirectResponse("/", status_code=302)
+    resp.set_cookie("session", create_session(user["id"]), httponly=True, samesite="lax", max_age=86400 * 7)
+    return resp
+
+
+@app.get("/logout")
+async def logout():
+    resp = RedirectResponse("/login", status_code=302)
+    resp.delete_cookie("session")
+    return resp
+
+
+@app.get("/forgot-password", response_class=HTMLResponse)
+async def forgot_page(request: Request):
+    return templates.TemplateResponse("forgot_password.html", {"request": request, "error": "", "success": ""})
+
+
+@app.post("/forgot-password", response_class=HTMLResponse)
+async def forgot_post(request: Request):
+    form  = await request.form()
+    email = (form.get("email") or "").strip().lower()
+    token = await create_reset_token(email)
+    if token:
+        base      = str(request.base_url).rstrip("/")
+        reset_url = f"{base}/reset-password/{token}"
+        try:
+            send_reset_email(email, reset_url)
+        except Exception as e:
+            return templates.TemplateResponse("forgot_password.html", {"request": request, "error": f"Email send failed: {e}", "success": ""})
+    return templates.TemplateResponse("forgot_password.html", {"request": request, "error": "", "success": "Recovery link sent! Check your Gmail inbox."})
+
+
+@app.get("/reset-password/{token}", response_class=HTMLResponse)
+async def reset_page(request: Request, token: str):
+    from auth import verify_reset_token
+    user = await verify_reset_token(token)
+    return templates.TemplateResponse("reset_password.html", {
+        "request": request, "token": token,
+        "valid_token": user is not None,
+        "error": "" if user else "This link has expired or is invalid.",
+        "success": "",
+    })
+
+
+@app.post("/reset-password/{token}", response_class=HTMLResponse)
+async def reset_post(request: Request, token: str):
+    form     = await request.form()
+    password = form.get("password") or ""
+    confirm  = form.get("confirm") or ""
+    if password != confirm:
+        return templates.TemplateResponse("reset_password.html", {"request": request, "token": token, "valid_token": True, "error": "Passwords don't match", "success": ""})
+    if len(password) < 8:
+        return templates.TemplateResponse("reset_password.html", {"request": request, "token": token, "valid_token": True, "error": "Password must be at least 8 characters", "success": ""})
+    ok = await apply_reset(token, password)
+    if not ok:
+        return templates.TemplateResponse("reset_password.html", {"request": request, "token": token, "valid_token": False, "error": "Link expired or invalid.", "success": ""})
+    return templates.TemplateResponse("reset_password.html", {"request": request, "token": token, "valid_token": False, "error": "", "success": "Password changed! You can now sign in."})
+
+
+@app.post("/api/settings/change-password")
+async def api_change_password(request: Request):
+    session = request.cookies.get("session")
+    user_id = verify_session(session) if session else None
+    if not user_id:
+        return JSONResponse({"error": "Not authenticated"}, status_code=401)
+    data = await request.json()
+    ok = await auth_change_password(user_id, data.get("old_password", ""), data.get("new_password", ""))
+    if not ok:
+        return JSONResponse({"error": "Current password is incorrect"}, status_code=400)
+    return JSONResponse({"success": True})
 
 
 # ── News Agent ───────────────────────────────────────────────────────────────

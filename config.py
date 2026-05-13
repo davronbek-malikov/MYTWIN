@@ -18,6 +18,10 @@ GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
 # Google Sheets integration (optional — leave blank to disable)
 GOOGLE_WEBHOOK_URL: str = os.getenv("GOOGLE_WEBHOOK_URL", "")
 GOOGLE_SHEET_ID: str    = os.getenv("GOOGLE_SHEET_ID", "")
+# Auth
+SECRET_KEY: str = os.getenv("SECRET_KEY", "change-me-in-production-use-random-32-chars")
+ADMIN_EMAIL: str = os.getenv("ADMIN_EMAIL", "davronbekmalikov96@gmail.com")
+GMAIL_APP_PASSWORD: str = os.getenv("GMAIL_APP_PASSWORD", "")
 
 def google_sheet_url() -> str:
     if GOOGLE_SHEET_ID:

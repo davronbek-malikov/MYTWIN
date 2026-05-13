@@ -465,6 +465,35 @@ body {
   padding: 10px 22px; border-radius: 10px; font-size: 14px;
   color: var(--text-muted); cursor: not-allowed; font-family: 'DM Sans', sans-serif; font-weight: 500;
 }
+
+/* ─── SETTINGS PANEL ─── */
+#panel-settings { background: var(--bg); overflow-y: auto; }
+.settings-inner { max-width: 560px; margin: 0 auto; padding: 28px 32px; }
+.settings-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 16px; padding: 28px; margin-bottom: 18px;
+  box-shadow: var(--shadow-sm);
+}
+.settings-card h3 { font-family: 'Syne', sans-serif; font-size: 17px; font-weight: 700; margin-bottom: 4px; }
+.settings-card p  { font-size: 13px; color: var(--text-muted); margin-bottom: 20px; line-height: 1.5; }
+.settings-form-group { margin-bottom: 14px; }
+.settings-form-group label { display: block; font-size: 13px; font-weight: 600; color: var(--text-mid); margin-bottom: 5px; }
+.settings-input {
+  width: 100%; padding: 10px 14px; border: 1.5px solid var(--border);
+  border-radius: 10px; font-size: 14px; font-family: 'DM Sans', sans-serif;
+  outline: none; color: var(--text); background: var(--bg); transition: border-color .2s;
+}
+.settings-input:focus { border-color: var(--teal); }
+.settings-btn {
+  padding: 10px 22px; background: var(--teal); color: #fff; border: none;
+  border-radius: 10px; font-size: 14px; font-family: 'DM Sans', sans-serif;
+  font-weight: 600; cursor: pointer; transition: all .2s;
+  box-shadow: 0 2px 8px rgba(14,165,233,.3);
+}
+.settings-btn:hover { background: var(--teal-dark); transform: translateY(-1px); }
+.settings-msg { padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-top: 12px; display: none; }
+.settings-msg.error   { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; display: block; }
+.settings-msg.success { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; display: block; }
 </style>
 </head>
 <body>
@@ -506,6 +535,12 @@ body {
     My Twin
   </div>
 
+  <div class="sidebar-divider"></div>
+  <div class="nav-item" id="nav-settings" onclick="switchAgent('settings')">
+    <span class="nav-icon">⚙️</span>
+    Settings
+  </div>
+
   <div class="sidebar-footer">
     {% if sheet_url %}
     <a href="{{ sheet_url }}" target="_blank" style="text-decoration:none;display:block;margin-bottom:8px">
@@ -514,6 +549,11 @@ body {
       </div>
     </a>
     {% endif %}
+    <a href="/logout" style="text-decoration:none;display:block;margin-bottom:8px">
+      <div class="nav-item" style="color:#ef4444;margin:0">
+        <span class="nav-icon">🚪</span> Sign Out
+      </div>
+    </a>
     <div class="sidebar-section-label" style="padding: 0 0 6px">Mode</div>
     <div class="sidebar-mode-toggle">
       <button class="mode-btn active" id="btn-assistant" onclick="setMode('assistant',this)">Assistant</button>
@@ -702,6 +742,50 @@ body {
     </div>
   </div>
 
+  <!-- Settings Panel -->
+  <div class="panel" id="panel-settings">
+    <div class="cc-topbar">
+      <div>
+        <div class="cc-title">Settings</div>
+        <div class="cc-subtitle">Manage your account and security</div>
+      </div>
+    </div>
+    <div class="settings-inner">
+
+      <div class="settings-card">
+        <h3>🔐 Change Password</h3>
+        <p>Update your sign-in password. You'll stay logged in after changing it.</p>
+        <div class="settings-form-group">
+          <label>Current Password</label>
+          <input class="settings-input" type="password" id="old-pw" placeholder="••••••••">
+        </div>
+        <div class="settings-form-group">
+          <label>New Password</label>
+          <input class="settings-input" type="password" id="new-pw" placeholder="Min 8 characters">
+        </div>
+        <div class="settings-form-group">
+          <label>Confirm New Password</label>
+          <input class="settings-input" type="password" id="confirm-pw" placeholder="Repeat new password">
+        </div>
+        <button class="settings-btn" onclick="changePassword()">Update Password</button>
+        <div class="settings-msg" id="pw-msg"></div>
+      </div>
+
+      <div class="settings-card">
+        <h3>📧 Account</h3>
+        <p>Your recovery email is set to <strong>davronbekmalikov96@gmail.com</strong>.<br>
+        Use <a href="/forgot-password" style="color:var(--teal)">Forgot Password</a> to reset via Gmail.</p>
+      </div>
+
+      <div class="settings-card" style="border-color:#fecaca;background:#fff5f5">
+        <h3 style="color:#dc2626">🚪 Sign Out</h3>
+        <p>End your current session.</p>
+        <a href="/logout"><button class="settings-btn" style="background:#ef4444;box-shadow:0 2px 8px rgba(239,68,68,.3)">Sign Out</button></a>
+      </div>
+
+    </div>
+  </div>
+
 </div>
 
 <script>
@@ -841,6 +925,28 @@ function hideWelcome(){const w=document.getElementById('welcome');if(w)w.remove(
 function handleKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendManual();}}
 function autoResize(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,120)+'px';}
 async function activateVoice(){document.getElementById('activate-overlay').style.display='none';await initMic();}
+
+// ── Settings ──────────────────────────────────────────────────────────────
+async function changePassword() {
+  const old_pw  = document.getElementById('old-pw').value;
+  const new_pw  = document.getElementById('new-pw').value;
+  const confirm = document.getElementById('confirm-pw').value;
+  const msg     = document.getElementById('pw-msg');
+  msg.className = 'settings-msg';
+  if (new_pw !== confirm) { msg.className='settings-msg error'; msg.textContent='New passwords do not match.'; return; }
+  if (new_pw.length < 8)  { msg.className='settings-msg error'; msg.textContent='New password must be at least 8 characters.'; return; }
+  try {
+    const r = await fetch('/api/settings/change-password', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({old_password: old_pw, new_password: new_pw})
+    });
+    const d = await r.json();
+    if (d.success) {
+      msg.className = 'settings-msg success'; msg.textContent = '✓ Password updated!';
+      document.getElementById('old-pw').value = document.getElementById('new-pw').value = document.getElementById('confirm-pw').value = '';
+    } else { msg.className='settings-msg error'; msg.textContent = d.error || 'Failed.'; }
+  } catch(e) { msg.className='settings-msg error'; msg.textContent='Connection error.'; }
+}
 </script>
 </body>
 </html>
