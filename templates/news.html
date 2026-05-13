@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>News Feed — My Twin</title>
+<style>
+  :root {
+    --bg: #0d0d14;
+    --card: #15151f;
+    --border: #1e1e2e;
+    --text: #e2e2f0;
+    --muted: #6b6b8a;
+    --accent: #6c63ff;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    min-height: 100vh;
+  }
+
+  /* ── Header ── */
+  header {
+    padding: 24px 32px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    background: rgba(13,13,20,0.92);
+    backdrop-filter: blur(12px);
+    z-index: 100;
+  }
+  .logo { display: flex; align-items: center; gap: 12px; }
+  .logo-icon {
+    width: 36px; height: 36px;
+    background: linear-gradient(135deg, #6c63ff, #00d4ff);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+  .logo-text h1 { font-size: 18px; font-weight: 700; }
+  .logo-text p  { font-size: 12px; color: var(--muted); margin-top: 1px; }
+
+  .header-right { display: flex; align-items: center; gap: 12px; }
+  .badge-live {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 12px; color: #00e676;
+    background: rgba(0,230,118,0.1);
+    padding: 4px 10px; border-radius: 20px;
+  }
+  .dot-live {
+    width: 7px; height: 7px;
+    background: #00e676; border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+  #refreshBtn {
+    background: var(--accent);
+    color: #fff;
+    border: none; cursor: pointer;
+    padding: 8px 18px; border-radius: 8px;
+    font-size: 13px; font-weight: 600;
+    transition: opacity .2s;
+  }
+  #refreshBtn:hover { opacity: 0.85; }
+  #refreshBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+  #lastUpdated { font-size: 12px; color: var(--muted); }
+
+  /* ── Topic pills ── */
+  .topic-nav {
+    padding: 16px 32px;
+    display: flex; gap: 8px; flex-wrap: wrap;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+  }
+  .pill {
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 13px; font-weight: 500;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    transition: all .2s;
+  }
+  .pill.active, .pill:hover {
+    border-color: currentColor;
+    color: #fff;
+    background: rgba(255,255,255,0.06);
+  }
+  .pill[data-key="all"]     { color: var(--accent); }
+  .pill[data-key="ai_llm"]    { color: #6c63ff; }
+  .pill[data-key="ai_agents"] { color: #00d4ff; }
+  .pill[data-key="tech"]      { color: #00e676; }
+  .pill[data-key="education"] { color: #ff9800; }
+  .pill[data-key="faang"]     { color: #ff5252; }
+
+  /* ── Main content ── */
+  main { padding: 32px; max-width: 1200px; margin: 0 auto; }
+
+  /* ── Section ── */
+  .section { margin-bottom: 48px; }
+  .section-header {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 20px;
+  }
+  .section-emoji { font-size: 22px; }
+  .section-title { font-size: 18px; font-weight: 700; }
+  .section-count {
+    font-size: 12px; color: var(--muted);
+    background: var(--card);
+    padding: 2px 8px; border-radius: 10px;
+    margin-left: 4px;
+  }
+  .section-time { font-size: 12px; color: var(--muted); margin-left: auto; }
+  .section-bar {
+    height: 2px; border-radius: 2px;
+    margin-bottom: 20px;
+    opacity: 0.6;
+  }
+
+  /* ── Cards grid ── */
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    display: flex; flex-direction: column;
+    gap: 12px;
+    transition: border-color .2s, transform .15s;
+    border-left-width: 3px;
+    position: relative;
+  }
+  .card:hover { transform: translateY(-2px); }
+
+  .card-header { display: flex; align-items: flex-start; gap: 10px; }
+  .card-source-badge {
+    font-size: 10px; font-weight: 700; letter-spacing: .5px;
+    padding: 3px 8px; border-radius: 6px;
+    background: rgba(255,255,255,0.07);
+    color: var(--muted);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .card-date { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  .card-title {
+    font-size: 15px; font-weight: 600; line-height: 1.4;
+    color: var(--text);
+    text-decoration: none;
+    flex: 1;
+  }
+  .card-title:hover { opacity: 0.85; }
+
+  .card-summary {
+    font-size: 13px; line-height: 1.65;
+    color: #a0a0be;
+    flex: 1;
+  }
+
+  .card-footer {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-top: auto; padding-top: 8px;
+    border-top: 1px solid var(--border);
+  }
+  .card-link {
+    font-size: 12px; font-weight: 600;
+    text-decoration: none;
+    display: flex; align-items: center; gap: 4px;
+    opacity: 0.85;
+    transition: opacity .15s;
+  }
+  .card-link:hover { opacity: 1; }
+  .card-link::after { content: "→"; }
+
+  /* ── Loading / Empty states ── */
+  .loading-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; }
+  .skeleton {
+    height: 180px; background: var(--card); border-radius: 14px;
+    border: 1px solid var(--border);
+    animation: shimmer 1.5s infinite;
+    background: linear-gradient(90deg, var(--card) 25%, #1e1e30 50%, var(--card) 75%);
+    background-size: 200% 100%;
+  }
+  @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+  .empty { text-align: center; padding: 40px; color: var(--muted); font-size: 14px; }
+
+  .global-loader {
+    position: fixed; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(13,13,20,0.85); z-index: 200;
+    flex-direction: column; gap: 16px;
+  }
+  .spinner {
+    width: 44px; height: 44px;
+    border: 3px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .global-loader p { color: var(--muted); font-size: 14px; }
+
+  /* ── Hidden sections ── */
+  .section.hidden { display: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">📡</div>
+    <div class="logo-text">
+      <h1>News Feed</h1>
+      <p>AI-summarized · Verified links</p>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="badge-live"><div class="dot-live"></div>Live</div>
+    <span id="lastUpdated"></span>
+    <button id="refreshBtn" onclick="loadNews(true)">↻ Refresh</button>
+  </div>
+</header>
+
+<nav class="topic-nav">
+  <button class="pill active" data-key="all" onclick="filterTopic('all')">🌐 All Topics</button>
+  <button class="pill" data-key="ai_llm"    onclick="filterTopic('ai_llm')">🤖 AI & LLMs</button>
+  <button class="pill" data-key="ai_agents" onclick="filterTopic('ai_agents')">⚡ AI Agents</button>
+  <button class="pill" data-key="tech"      onclick="filterTopic('tech')">💡 Modern Tech</button>
+  <button class="pill" data-key="education" onclick="filterTopic('education')">📚 Education</button>
+  <button class="pill" data-key="faang"     onclick="filterTopic('faang')">🏢 Big Tech</button>
+</nav>
+
+<div id="globalLoader" class="global-loader">
+  <div class="spinner"></div>
+  <p>Fetching & summarizing news with AI…</p>
+</div>
+
+<main id="feed"></main>
+
+<script>
+const COLORS = {
+  ai_llm:    '#6c63ff',
+  ai_agents: '#00d4ff',
+  tech:      '#00e676',
+  education: '#ff9800',
+  faang:     '#ff5252',
+};
+
+let currentFilter = 'all';
+let _data = [];
+
+function filterTopic(key) {
+  currentFilter = key;
+  document.querySelectorAll('.pill').forEach(p => {
+    p.classList.toggle('active', p.dataset.key === key);
+  });
+  document.querySelectorAll('.section').forEach(s => {
+    s.classList.toggle('hidden', key !== 'all' && s.dataset.key !== key);
+  });
+}
+
+function formatDate(d) {
+  if (!d) return '';
+  const dt = new Date(d);
+  return isNaN(dt) ? d : dt.toLocaleDateString('en-US', {month:'short', day:'numeric'});
+}
+
+function renderCard(article, color) {
+  const safeTitle = article.title.replace(/</g,'&lt;');
+  const safeSummary = article.summary.replace(/</g,'&lt;');
+  const safeSource = (article.source||'').replace(/</g,'&lt;');
+  return `
+    <div class="card" style="border-left-color:${color}">
+      <div class="card-header">
+        <div>
+          <div class="card-source-badge">${safeSource.toUpperCase()}</div>
+          <div class="card-date">${formatDate(article.date)}</div>
+        </div>
+      </div>
+      <a class="card-title" href="${article.url}" target="_blank" rel="noopener">${safeTitle}</a>
+      <p class="card-summary">${safeSummary}</p>
+      <div class="card-footer">
+        <a class="card-link" href="${article.url}" target="_blank" rel="noopener" style="color:${color}">Read full article</a>
+      </div>
+    </div>`;
+}
+
+function renderFeed(data) {
+  const feed = document.getElementById('feed');
+  feed.innerHTML = '';
+  data.forEach(topic => {
+    const color = COLORS[topic.key] || '#6c63ff';
+    const articles = topic.articles || [];
+    const section = document.createElement('div');
+    section.className = 'section' + (currentFilter !== 'all' && currentFilter !== topic.key ? ' hidden' : '');
+    section.dataset.key = topic.key;
+    section.innerHTML = `
+      <div class="section-header">
+        <span class="section-emoji">${topic.emoji}</span>
+        <span class="section-title">${topic.name}</span>
+        <span class="section-count">${articles.length} articles</span>
+        <span class="section-time">Updated ${topic.fetched_str || ''}</span>
+      </div>
+      <div class="section-bar" style="background:${color}"></div>
+      ${articles.length
+        ? `<div class="cards">${articles.map(a => renderCard(a, color)).join('')}</div>`
+        : `<div class="empty">No articles found for this topic right now.</div>`
+      }`;
+    feed.appendChild(section);
+  });
+}
+
+async function loadNews(force = false) {
+  const btn = document.getElementById('refreshBtn');
+  const loader = document.getElementById('globalLoader');
+  btn.disabled = true;
+  btn.textContent = '↻ Loading…';
+  if (force || _data.length === 0) loader.style.display = 'flex';
+
+  try {
+    const url = force ? '/api/news?refresh=1' : '/api/news';
+    const res = await fetch(url);
+    _data = await res.json();
+    renderFeed(_data);
+    const now = new Date();
+    document.getElementById('lastUpdated').textContent =
+      'Updated ' + now.toLocaleTimeString('en-US', {hour:'2-digit', minute:'2-digit'});
+  } catch(e) {
+    document.getElementById('feed').innerHTML =
+      '<div class="empty">Failed to load news. Is the server running?</div>';
+  } finally {
+    loader.style.display = 'none';
+    btn.disabled = false;
+    btn.textContent = '↻ Refresh';
+  }
+}
+
+// Auto-refresh every 30 minutes
+setInterval(() => loadNews(true), 30 * 60 * 1000);
+
+loadNews();
+</script>
+</body>
+</html>

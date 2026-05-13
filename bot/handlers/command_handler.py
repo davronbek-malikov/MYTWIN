@@ -1,7 +1,8 @@
 import config
-from telegram import Update
+from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ContextTypes
 
+from agents.news_agent import fetch_topic as news_fetch_topic, fetch_all as news_fetch_all, TOPICS as NEWS_TOPICS
 from bot.keyboards import main_menu_keyboard, mode_keyboard
 from core.brain import brain
 from database.db import get_or_create_user, get_user_mode, set_user_mode, get_voice_enabled, set_voice_enabled
@@ -89,6 +90,65 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     await update.message.reply_text(text, parse_mode="Markdown")
 
 
+def _news_keyboard() -> InlineKeyboardMarkup:
+    """Build the topic-picker keyboard for /news."""
+    topic_keys = [t["key"] for t in NEWS_TOPICS]
+    rows = []
+    # Pair up topics into rows of 2, then add "All Topics" as a final full-width row
+    for i in range(0, len(topic_keys), 2):
+        pair = topic_keys[i: i + 2]
+        row = []
+        for key in pair:
+            topic = next(t for t in NEWS_TOPICS if t["key"] == key)
+            row.append(InlineKeyboardButton(
+                f"{topic['emoji']} {topic['name']}",
+                callback_data=f"news__{key}",
+            ))
+        rows.append(row)
+    rows.append([InlineKeyboardButton("🌐 All Topics", callback_data="news__all")])
+    return InlineKeyboardMarkup(rows)
+
+
+def _format_topic_result(result: dict) -> str:
+    """Format a single topic result as Telegram Markdown."""
+    emoji = result.get("emoji", "")
+    name = result.get("name", result.get("key", ""))
+    fetched = result.get("fetched_str", "")
+    articles = result.get("articles", [])
+
+    lines = [f"*{emoji} {name}*  _({fetched})_"]
+    if not articles:
+        lines.append("_No articles found._")
+        return "\n".join(lines)
+
+    for art in articles[:4]:
+        title = art.get("title", "No title")
+        url = art.get("url", "#")
+        source = art.get("source", "Unknown")
+        date = art.get("date", "")
+        summary = art.get("summary", "")
+
+        source_date = f"{source}"
+        if date:
+            source_date += f" · {date}"
+
+        lines.append(
+            f"\n[{title}]({url})\n"
+            f"_{source_date}_\n"
+            f"{summary}"
+        )
+
+    return "\n".join(lines)
+
+
+async def news_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.message.reply_text(
+        "📰 *News Digest* — choose a topic:",
+        parse_mode="Markdown",
+        reply_markup=_news_keyboard(),
+    )
+
+
 async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     await query.answer()
@@ -137,3 +197,22 @@ async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             parse_mode="Markdown",
             reply_markup=main_menu_keyboard(new_state),
         )
+
+    elif data.startswith("news__"):
+        topic_key = data[len("news__"):]
+        await query.edit_message_text("⏳ Fetching news, please wait…", parse_mode="Markdown")
+
+        if topic_key == "all":
+            results = await news_fetch_all()
+            first = True
+            for result in results:
+                text = _format_topic_result(result)
+                if first:
+                    await query.edit_message_text(text, parse_mode="Markdown", disable_web_page_preview=True)
+                    first = False
+                else:
+                    await query.message.reply_text(text, parse_mode="Markdown", disable_web_page_preview=True)
+        else:
+            result = await news_fetch_topic(topic_key)
+            text = _format_topic_result(result)
+            await query.edit_message_text(text, parse_mode="Markdown", disable_web_page_preview=True)

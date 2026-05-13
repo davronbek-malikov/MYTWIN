@@ -12,6 +12,7 @@ from bot.handlers.command_handler import (
     callback_handler,
     clear_command,
     mode_command,
+    news_command,
     sheet_command,
     start_command,
     stats_command,
@@ -50,6 +51,7 @@ def create_and_run_bot() -> None:
     app.add_handler(CommandHandler("stats", stats_command))
     app.add_handler(CommandHandler("voice", voice_command))
     app.add_handler(CommandHandler("sheet", sheet_command))
+    app.add_handler(CommandHandler("news", news_command))
 
     # Messages
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, text_handler))

@@ -19,6 +19,7 @@ from database.db import (
 )
 from tools.entry_tools import get_summary, query_entries
 from utils.logger import logger
+from agents.news_agent import fetch_all as news_fetch_all, fetch_topic as news_fetch_topic, TOPICS as NEWS_TOPICS, invalidate_cache as news_invalidate
 
 _WEB_TELEGRAM_ID = 0
 _web_user_id: int | None = None
@@ -191,7 +192,40 @@ async def set_webhook(request: Request):
     return r.json()
 
 
+# ── News Agent ───────────────────────────────────────────────────────────────
+
+@app.get("/news", response_class=HTMLResponse)
+async def news_page(request: Request):
+    return templates.TemplateResponse("news.html", {
+        "request": request,
+        "owner": config.OWNER_NAME,
+        "topics": NEWS_TOPICS,
+    })
+
+
+@app.get("/api/news")
+async def api_news(refresh: str = "0"):
+    if refresh == "1":
+        news_invalidate()
+    data = await news_fetch_all()
+    return JSONResponse([{k: v for k, v in t.items() if k != "_ts"} for t in data])
+
+
+@app.get("/api/news/{key}")
+async def api_news_topic(key: str, refresh: str = "0"):
+    if refresh == "1":
+        news_invalidate(key)
+    data = await news_fetch_topic(key)
+    return JSONResponse({k: v for k, v in data.items() if k != "_ts"})
+
+
+@app.post("/api/news/refresh")
+async def api_news_refresh():
+    news_invalidate()
+    data = await news_fetch_all()
+    return JSONResponse({"refreshed": True, "topics": len(data)})
+
+
 if __name__ == "__main__":
-    import os
     port = int(os.getenv("PORT", 8000))
     uvicorn.run("web_app:app", host="0.0.0.0", port=port, reload=False)

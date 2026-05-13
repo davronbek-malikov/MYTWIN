@@ -3,6 +3,7 @@ from tools.memory_tools import save_memory, recall_memories
 from tools.entry_tools import save_entry, query_entries, get_summary, get_daily_summary, delete_entry
 from tools.report_tools import generate_report
 from tools.search_tools import web_search, get_weather, get_news, convert_currency
+from tools.news_tool import get_news_briefing
 from utils.logger import logger
 
 # OpenAI function-calling format
@@ -248,6 +249,30 @@ TOOLS_SCHEMA = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_news_briefing",
+            "description": (
+                "Fetch a formatted AI-summarized news briefing. Use when the user asks for news, "
+                "what's happening in tech/AI, latest updates, or mentions any news topic. "
+                "Topics: ai_llm, ai_agents, tech, education, faang, asia_tech, startups, new_software, new_llms, or 'all'."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "topic": {
+                        "type": "string",
+                        "description": "Topic key: ai_llm, ai_agents, tech, education, faang, asia_tech, startups, new_software, new_llms, or 'all'",
+                    },
+                    "max_articles": {
+                        "type": "integer",
+                        "description": "Articles per topic (1-5, default 3)",
+                    },
+                },
+            },
+        },
+    },
 ]
 
 
@@ -278,6 +303,8 @@ async def execute_tool(tool_name: str, tool_input: dict, user_id: int) -> str:
             result = await get_news(**tool_input)
         elif tool_name == "convert_currency":
             result = await convert_currency(**tool_input)
+        elif tool_name == "get_news_briefing":
+            result = await get_news_briefing(**tool_input)
         else:
             return f"Unknown tool: {tool_name}"
 
