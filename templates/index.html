@@ -494,6 +494,127 @@ body {
 .settings-msg { padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-top: 12px; display: none; }
 .settings-msg.error   { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; display: block; }
 .settings-msg.success { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; display: block; }
+
+/* ═══════════════════════════════════════════════
+   RESPONSIVE — Tablet (768–1023px): icon-only sidebar
+   ═══════════════════════════════════════════════ */
+@media (max-width: 1023px) and (min-width: 768px) {
+  .sidebar { width: 58px; overflow: hidden; }
+  .logo-text, .sidebar-section-label,
+  .nav-item > span:not(.nav-icon), .nav-badge,
+  .sidebar-mode-toggle, .sidebar-footer > a > div > span:not(.nav-icon) { display: none !important; }
+  .nav-item { justify-content: center; padding: 11px 0; }
+  .sidebar-logo { justify-content: center; padding: 16px 0; }
+  .logo-mark { width: 32px; height: 32px; font-size: 16px; }
+  .sidebar-footer { padding: 8px 4px; }
+  .sidebar-footer > a > div { justify-content: center; padding: 10px 0; }
+}
+
+/* ═══════════════════════════════════════════════
+   RESPONSIVE — Mobile (<768px): bottom tab bar
+   ═══════════════════════════════════════════════ */
+@media (max-width: 767px) {
+  body { overflow: hidden; }
+  .sidebar { display: none; }
+  .main { padding-bottom: 62px; }
+
+  /* Bottom navigation */
+  .bottom-nav {
+    display: flex !important;
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    height: 62px;
+    background: #fff;
+    border-top: 1.5px solid #e2e8f0;
+    z-index: 300;
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.08);
+  }
+  .bn-item {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 3px;
+    cursor: pointer; border: none; background: none;
+    font-family: 'DM Sans', sans-serif;
+    color: #94a3b8; transition: color .15s; padding: 6px 0;
+    text-decoration: none;
+  }
+  .bn-item.active { color: #0ea5e9; }
+  .bn-item .bn-icon { font-size: 20px; line-height: 1; }
+  .bn-item .bn-label { font-size: 10px; font-weight: 600; letter-spacing: .2px; }
+  .bn-item.danger .bn-label { color: #ef4444; }
+  .bn-item.danger .bn-icon { color: #ef4444; }
+
+  /* Header */
+  header, .cc-topbar { padding: 10px 14px; }
+  .cc-title { font-size: 20px; }
+  .cc-subtitle { font-size: 11px; }
+  .cc-topbar { flex-wrap: wrap; gap: 6px; }
+  .cc-topbar-right { margin-top: 0; }
+  .status-pill { font-size: 11px; padding: 4px 9px; }
+
+  /* News pills: horizontal scroll */
+  .news-topbar {
+    overflow-x: auto; flex-wrap: nowrap;
+    padding: 8px 12px; gap: 6px; -webkit-overflow-scrolling: touch;
+  }
+  .news-topbar::-webkit-scrollbar { display: none; }
+  .news-topbar-title { display: none; }
+  .news-pill { flex-shrink: 0; padding: 5px 10px; font-size: 11px; }
+  .news-refresh { flex-shrink: 0; }
+  #news-updated { display: none; }
+
+  /* News cards: single column */
+  .news-cards { grid-template-columns: 1fr !important; gap: 10px; }
+  #news-content { padding: 14px 14px 20px; }
+
+  /* Finance chat */
+  #messages { padding: 14px 14px; gap: 12px; }
+  .msg { max-width: 92%; }
+  .msg-bubble { font-size: 14px; padding: 10px 13px; }
+
+  /* Input bar: compact */
+  .input-bar { padding: 8px 12px; gap: 6px; }
+  #input { font-size: 14px; padding: 9px 12px; }
+  .bar-btn { width: 38px; height: 38px; font-size: 15px; }
+  #voice-toggle { font-size: 11px; padding: 0 10px; height: 38px; }
+
+  /* Status bar */
+  .status-bar { font-size: 11px; padding: 5px 14px; min-height: 32px; }
+
+  /* Twin panel */
+  .twin-inner { padding: 16px 14px; }
+  .twin-hero { padding: 22px 18px; }
+  .twin-hero h1 { font-size: 22px; }
+  .twin-hero p { font-size: 13px; }
+  .twin-stats-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+  .twin-stat .num { font-size: 26px; }
+  .twin-activity-row { padding: 11px 14px; font-size: 13px; }
+
+  /* Settings */
+  .settings-inner { padding: 16px 14px; }
+  .settings-card { padding: 18px 16px; }
+  .settings-card h3 { font-size: 15px; }
+
+  /* Welcome screen */
+  .welcome-screen { padding: 24px 16px; }
+  .welcome-icon { font-size: 38px; }
+  .welcome-title { font-size: 20px; }
+  .welcome-sub { font-size: 13px; margin-bottom: 18px; }
+  .chip { font-size: 12px; padding: 7px 12px; }
+
+  /* Activate overlay card */
+  .activate-card { padding: 28px 24px; }
+  .activate-card .icon { font-size: 36px; }
+  .activate-card h3 { font-size: 18px; }
+
+  /* Coming soon */
+  .coming-card { padding: 32px 24px; }
+  .coming-card .icon { font-size: 42px; }
+  .coming-card h2 { font-size: 18px; }
+  .coming-card p { font-size: 13px; }
+}
+
+/* Hide bottom nav on desktop/tablet */
+.bottom-nav { display: none; }
 </style>
 </head>
 <body>
@@ -788,6 +909,30 @@ body {
 
 </div>
 
+<!-- Mobile Bottom Navigation -->
+<nav class="bottom-nav" id="bottom-nav">
+  <button class="bn-item active" data-agent="finance" onclick="switchAgent('finance');updateBottomNav('finance')">
+    <span class="bn-icon">💰</span>
+    <span class="bn-label">Finance</span>
+  </button>
+  <button class="bn-item" data-agent="news" onclick="switchAgent('news');updateBottomNav('news')">
+    <span class="bn-icon">📰</span>
+    <span class="bn-label">News</span>
+  </button>
+  <button class="bn-item" data-agent="twin" onclick="switchAgent('twin');updateBottomNav('twin')">
+    <span class="bn-icon">🧠</span>
+    <span class="bn-label">Twin</span>
+  </button>
+  <button class="bn-item" data-agent="settings" onclick="switchAgent('settings');updateBottomNav('settings')">
+    <span class="bn-icon">⚙️</span>
+    <span class="bn-label">Settings</span>
+  </button>
+  <a href="/logout" class="bn-item danger">
+    <span class="bn-icon">🚪</span>
+    <span class="bn-label">Sign Out</span>
+  </a>
+</nav>
+
 <script>
 // ── State ─────────────────────────────────────────────────────────────────
 const SPEECH_THRESHOLD = 18, SILENCE_MS = 1400, MIN_RECORD_MS = 600;
@@ -925,6 +1070,12 @@ function hideWelcome(){const w=document.getElementById('welcome');if(w)w.remove(
 function handleKey(e){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendManual();}}
 function autoResize(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,120)+'px';}
 async function activateVoice(){document.getElementById('activate-overlay').style.display='none';await initMic();}
+
+function updateBottomNav(agent) {
+  document.querySelectorAll('.bn-item[data-agent]').forEach(b =>
+    b.classList.toggle('active', b.dataset.agent === agent)
+  );
+}
 
 // ── Settings ──────────────────────────────────────────────────────────────
 async function changePassword() {
