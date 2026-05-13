@@ -23,7 +23,7 @@ from fastapi.responses import RedirectResponse
 from auth import (
     any_user_exists, get_user_by_email, create_user, verify_password,
     create_session, verify_session, create_reset_token, apply_reset,
-    send_reset_email, change_password as auth_change_password,
+    send_reset_email, change_password as auth_change_password,  # send_reset_email is now async
 )
 from agents.news_agent import fetch_all as news_fetch_all, fetch_topic as news_fetch_topic, TOPICS as NEWS_TOPICS, invalidate_cache as news_invalidate
 
@@ -278,14 +278,23 @@ async def forgot_post(request: Request):
     form  = await request.form()
     email = (form.get("email") or "").strip().lower()
     token = await create_reset_token(email)
-    if token:
-        base      = str(request.base_url).rstrip("/")
-        reset_url = f"{base}/reset-password/{token}"
-        try:
-            send_reset_email(email, reset_url)
-        except Exception as e:
-            return _tr(request, "forgot_password.html", error=f"Email send failed: {e}", success="")
-    return _tr(request, "forgot_password.html", error="", success="Recovery link sent! Check your Gmail inbox.")
+    if not token:
+        # Don't reveal if email exists — same message either way
+        logger.warning(f"Reset requested for non-existent email: {email}")
+        return _tr(request, "forgot_password.html", error="",
+                   success="If that email has an account, a recovery link was sent.")
+    base      = str(request.base_url).rstrip("/")
+    reset_url = f"{base}/reset-password/{token}"
+    try:
+        await send_reset_email(email, reset_url)
+        logger.info(f"Reset email sent to: {email}")
+        return _tr(request, "forgot_password.html", error="",
+                   success="✅ Recovery link sent! Check your inbox (and spam folder).")
+    except Exception as e:
+        logger.error(f"Reset email failed for {email}: {e}")
+        return _tr(request, "forgot_password.html",
+                   error=f"❌ Email failed: {e}. Check GMAIL_APP_PASSWORD in Vercel settings.",
+                   success="")
 
 
 @app.get("/reset-password/{token}", response_class=HTMLResponse)

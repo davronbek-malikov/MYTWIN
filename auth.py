@@ -1,4 +1,5 @@
 from __future__ import annotations
+import asyncio
 import secrets
 import smtplib
 from datetime import datetime, timedelta, timezone
@@ -10,6 +11,7 @@ from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
 
 import config
 from database.db import get_pool
+from utils.logger import logger
 
 _serial = URLSafeTimedSerializer(config.SECRET_KEY)
 
@@ -91,6 +93,7 @@ async def create_reset_token(email: str) -> str | None:
     async with pool.acquire() as conn:
         row = await conn.fetchrow("SELECT id FROM auth_users WHERE email = $1", email.lower())
         if not row:
+            logger.warning(f"Password reset requested for unknown email: {email}")
             return None
         token = secrets.token_urlsafe(32)
         expiry = datetime.now(timezone.utc) + timedelta(hours=1)
@@ -98,6 +101,7 @@ async def create_reset_token(email: str) -> str | None:
             "UPDATE auth_users SET reset_token=$1, reset_expiry=$2 WHERE email=$3",
             token, expiry, email.lower(),
         )
+        logger.info(f"Reset token created for: {email}")
         return token
 
 async def verify_reset_token(token: str) -> dict | None:
@@ -122,7 +126,7 @@ async def apply_reset(token: str, new_pw: str) -> bool:
 
 # ── Gmail email sender ────────────────────────────────────────────────────
 
-def send_reset_email(to: str, reset_url: str) -> None:
+async def send_reset_email(to: str, reset_url: str) -> None:
     if not config.GMAIL_APP_PASSWORD:
         raise RuntimeError("GMAIL_APP_PASSWORD not set in .env")
     sender = config.ADMIN_EMAIL
@@ -142,6 +146,9 @@ def send_reset_email(to: str, reset_url: str) -> None:
     <p style="color:#94a3b8;font-size:12px;margin-top:24px">If you didn't request this, ignore this email.</p>
     </div>"""
     msg.attach(MIMEText(html, "html"))
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=10) as s:
-        s.login(sender, config.GMAIL_APP_PASSWORD)
-        s.sendmail(sender, to, msg.as_string())
+    def _send():
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=15) as s:
+            s.login(sender, config.GMAIL_APP_PASSWORD)
+            s.sendmail(sender, to, msg.as_string())
+
+    await asyncio.to_thread(_send)
