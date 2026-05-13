@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import re
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from email.utils import parsedate_to_datetime
 from xml.etree import ElementTree
 
@@ -18,35 +18,37 @@ from utils.logger import logger
 
 TOPICS = [
     {"key": "ai_llm",       "name": "AI & LLMs",           "emoji": "🤖", "color": "#6c63ff",
-     "query": "artificial intelligence GPT Claude Gemini LLM 2025"},
+     "query": "artificial intelligence GPT Claude Gemini LLM news"},
     {"key": "ai_agents",    "name": "AI Agents",            "emoji": "⚡", "color": "#00d4ff",
-     "query": "AI agents autonomous agentic systems 2025"},
+     "query": "AI agents autonomous agentic latest news"},
     {"key": "tech",         "name": "Modern Tech",          "emoji": "💡", "color": "#00e676",
-     "query": "technology innovation breakthrough 2025"},
+     "query": "technology innovation latest news today"},
     {"key": "education",    "name": "Education",            "emoji": "📚", "color": "#ff9800",
-     "query": "education edtech online learning 2025"},
+     "query": "education edtech online learning news"},
     {"key": "faang",        "name": "Big Tech (FAANG+)",    "emoji": "🏢", "color": "#ff5252",
-     "query": "Google Apple Meta Amazon Microsoft OpenAI Anthropic 2025"},
+     "query": "Google Apple Meta Amazon Microsoft OpenAI Anthropic news"},
     {"key": "asia_tech",    "name": "Asia Tech",            "emoji": "🌏", "color": "#e91e63",
-     "query": "China Japan Korea technology AI startup 2025"},
+     "query": "China Japan Korea technology AI startup news"},
     {"key": "startups",     "name": "Startups",             "emoji": "🚀", "color": "#ff6d00",
-     "query": "startup funding venture capital launch 2025"},
+     "query": "startup funding venture capital product launch news"},
     {"key": "new_software", "name": "New Software & Tools", "emoji": "🛠️", "color": "#00bcd4",
-     "query": "new software app tool product launch notion 2025"},
+     "query": "new software app tool product launch notion news"},
     {"key": "new_llms",     "name": "New LLMs & Models",    "emoji": "🧠", "color": "#ab47bc",
-     "query": "new LLM model release GPT Claude Gemini Llama 2025"},
+     "query": "new LLM AI model release announcement news"},
 ]
 
 _cache: dict = {}
 _CACHE_TTL = 1800  # 30 minutes
 
-_RSS = "https://news.google.com/rss/search?q={q}&hl=en-US&gl=US&ceid=US:en"
+_RSS = "https://news.google.com/rss/search?q={q}+when:2d&hl=en-US&gl=US&ceid=US:en"
 _HEADERS = {"User-Agent": "MyTwinNewsBot/1.0 (compatible; httpx)"}
+_MAX_AGE_DAYS = 2  # secondary filter — skip anything still older than 2 days
 
 
 # ── Fetch from Google News RSS ────────────────────────────────────────────
 
-async def _fetch_rss(query: str, max_results: int = 6) -> list:
+async def _fetch_rss(query: str, max_results: int = 8) -> list:
+    """Fetch from Google News RSS and keep only articles ≤ 2 days old."""
     url = _RSS.format(q=query.replace(" ", "+"))
     try:
         async with httpx.AsyncClient(timeout=12, follow_redirects=True, headers=_HEADERS) as client:
@@ -57,19 +59,28 @@ async def _fetch_rss(query: str, max_results: int = 6) -> list:
         logger.error(f"RSS fetch/parse error for '{query}': {e}")
         return []
 
+    cutoff = datetime.now(timezone.utc) - timedelta(days=_MAX_AGE_DAYS)
     articles = []
+
     for item in root.findall(".//item")[:max_results]:
-        title = (item.findtext("title") or "").strip()
-        link  = item.findtext("link") or ""
-        pub   = item.findtext("pubDate") or ""
-        src   = item.find("source")
+        title  = (item.findtext("title") or "").strip()
+        link   = item.findtext("link") or ""
+        pub    = item.findtext("pubDate") or ""
+        src    = item.find("source")
         source = src.text.strip() if src is not None else "News"
 
+        # Parse publish date and filter by age
+        pub_dt = None
         date_str = ""
         try:
-            date_str = parsedate_to_datetime(pub).strftime("%Y-%m-%d")
+            pub_dt   = parsedate_to_datetime(pub)
+            date_str = pub_dt.strftime("%Y-%m-%d")
         except Exception:
             date_str = pub[:10]
+
+        # Skip if older than cutoff
+        if pub_dt and pub_dt < cutoff:
+            continue
 
         if title and link:
             articles.append({"title": title, "url": link, "source": source, "date": date_str})
