@@ -4,6 +4,7 @@ Run with: python web_app.py
 Then open: http://localhost:8000
 """
 import io
+import os
 import uvicorn
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, UploadFile, File
@@ -17,6 +18,7 @@ from database.db import (
     init_db, get_or_create_user, get_user_mode, set_user_mode
 )
 from tools.entry_tools import get_summary, query_entries
+from utils.logger import logger
 
 _WEB_TELEGRAM_ID = 0
 _web_user_id: int | None = None
@@ -25,11 +27,15 @@ _web_user_id: int | None = None
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global _web_user_id
-    await init_db()
-    db_user = await get_or_create_user(
-        _WEB_TELEGRAM_ID, "web", config.OWNER_NAME
-    )
-    _web_user_id = db_user["id"]
+    try:
+        await init_db()
+        if not os.getenv("VERCEL"):
+            db_user = await get_or_create_user(
+                _WEB_TELEGRAM_ID, "web", config.OWNER_NAME
+            )
+            _web_user_id = db_user["id"]
+    except Exception as e:
+        logger.error(f"Startup DB error (non-fatal): {e}")
     yield
 
 
@@ -40,12 +46,15 @@ templates = Jinja2Templates(directory="templates")
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     mode = await get_user_mode(_WEB_TELEGRAM_ID)
-    return templates.TemplateResponse("index.html", {
-        "request": request,
-        "owner": config.OWNER_NAME,
-        "mode": mode,
-        "sheet_url": config.google_sheet_url(),
-    })
+    return templates.TemplateResponse(
+        request=request,
+        name="index.html",
+        context={
+            "owner": config.OWNER_NAME,
+            "mode": mode,
+            "sheet_url": config.google_sheet_url(),
+        },
+    )
 
 
 class ChatMsg(BaseModel):
