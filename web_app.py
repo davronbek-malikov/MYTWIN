@@ -368,6 +368,37 @@ async def api_news_refresh():
     return JSONResponse({"refreshed": True, "topics": len(data)})
 
 
+@app.get("/api/test-smtp")
+async def test_smtp():
+    """Debug: test SMTP connection and show exact error."""
+    import smtplib, asyncio
+    results = {
+        "GMAIL_APP_PASSWORD_set": bool(config.GMAIL_APP_PASSWORD),
+        "GMAIL_APP_PASSWORD_length": len(config.GMAIL_APP_PASSWORD),
+        "ADMIN_EMAIL": config.ADMIN_EMAIL,
+    }
+    # Test port 465 (SSL)
+    try:
+        def _test_465():
+            with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=10) as s:
+                s.login(config.ADMIN_EMAIL, config.GMAIL_APP_PASSWORD)
+                return "OK"
+        results["port_465"] = await asyncio.to_thread(_test_465)
+    except Exception as e:
+        results["port_465"] = f"FAILED: {type(e).__name__}: {e}"
+    # Test port 587 (STARTTLS)
+    try:
+        def _test_587():
+            with smtplib.SMTP("smtp.gmail.com", 587, timeout=10) as s:
+                s.starttls()
+                s.login(config.ADMIN_EMAIL, config.GMAIL_APP_PASSWORD)
+                return "OK"
+        results["port_587"] = await asyncio.to_thread(_test_587)
+    except Exception as e:
+        results["port_587"] = f"FAILED: {type(e).__name__}: {e}"
+    return JSONResponse(results)
+
+
 @app.get("/api/twin-stats")
 async def twin_stats():
     from database.db import get_pool

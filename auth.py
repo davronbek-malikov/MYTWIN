@@ -147,8 +147,19 @@ async def send_reset_email(to: str, reset_url: str) -> None:
     </div>"""
     msg.attach(MIMEText(html, "html"))
     def _send():
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=15) as s:
-            s.login(sender, config.GMAIL_APP_PASSWORD)
-            s.sendmail(sender, to, msg.as_string())
+        # Try port 465 (SSL) first, fall back to 587 (STARTTLS)
+        try:
+            with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=15) as s:
+                s.login(sender, config.GMAIL_APP_PASSWORD)
+                s.sendmail(sender, to, msg.as_string())
+                logger.info("Email sent via port 465")
+        except (OSError, smtplib.SMTPException) as e465:
+            logger.warning(f"Port 465 failed ({e465}), trying 587…")
+            with smtplib.SMTP("smtp.gmail.com", 587, timeout=15) as s:
+                s.ehlo()
+                s.starttls()
+                s.login(sender, config.GMAIL_APP_PASSWORD)
+                s.sendmail(sender, to, msg.as_string())
+                logger.info("Email sent via port 587")
 
     await asyncio.to_thread(_send)
