@@ -1,99 +1,142 @@
 """
-News Agent — fetches and summarizes recent news across 5 topic areas.
-All topics are fetched in parallel via asyncio.gather.
-Results are cached in-memory for 30 minutes to avoid re-fetching.
+News Agent — fetches real news via Google News RSS and summarizes with Gemini.
+All 9 topics are fetched in parallel via asyncio.gather.
+Results are cached 30 minutes.
 """
 from __future__ import annotations
 
 import asyncio
+import re
 from datetime import datetime
+from email.utils import parsedate_to_datetime
+from xml.etree import ElementTree
 
-from openai import AsyncOpenAI
+import httpx
 
 import config
 from utils.logger import logger
 
 TOPICS = [
-    {"key": "ai_llm",    "name": "AI & LLMs",           "emoji": "🤖", "color": "#6c63ff",
-     "query": "artificial intelligence GPT-4 Claude Gemini LLM 2025 latest"},
-    {"key": "ai_agents", "name": "AI Agents",            "emoji": "⚡", "color": "#00d4ff",
-     "query": "AI agents autonomous systems agentic AI 2025"},
-    {"key": "tech",      "name": "Modern Tech",          "emoji": "💡", "color": "#00e676",
-     "query": "technology innovation breakthrough startups 2025"},
-    {"key": "education", "name": "Education",            "emoji": "📚", "color": "#ff9800",
-     "query": "education edtech online learning AI education 2025"},
-    {"key": "faang",     "name": "Big Tech (FAANG+)",    "emoji": "🏢", "color": "#ff5252",
-     "query": "Google Apple Meta Amazon Microsoft OpenAI Anthropic news 2025"},
-    {"key": "asia_tech",    "name": "Asia Tech",              "emoji": "🌏", "color": "#e91e63",
-     "query": "China Japan Korea technology AI startup innovation 2025"},
-    {"key": "startups",     "name": "Startups",               "emoji": "🚀", "color": "#ff6d00",
-     "query": "startup funding venture capital product launch 2025"},
-    {"key": "new_software", "name": "New Software & Tools",   "emoji": "🛠️", "color": "#00bcd4",
-     "query": "new app software launch product tool notion productivity 2025"},
-    {"key": "new_llms",     "name": "New LLMs & Models",      "emoji": "🧠", "color": "#ab47bc",
-     "query": "new LLM model release GPT Claude Gemini Llama mistral 2025"},
+    {"key": "ai_llm",       "name": "AI & LLMs",           "emoji": "🤖", "color": "#6c63ff",
+     "query": "artificial intelligence GPT Claude Gemini LLM 2025"},
+    {"key": "ai_agents",    "name": "AI Agents",            "emoji": "⚡", "color": "#00d4ff",
+     "query": "AI agents autonomous agentic systems 2025"},
+    {"key": "tech",         "name": "Modern Tech",          "emoji": "💡", "color": "#00e676",
+     "query": "technology innovation breakthrough 2025"},
+    {"key": "education",    "name": "Education",            "emoji": "📚", "color": "#ff9800",
+     "query": "education edtech online learning 2025"},
+    {"key": "faang",        "name": "Big Tech (FAANG+)",    "emoji": "🏢", "color": "#ff5252",
+     "query": "Google Apple Meta Amazon Microsoft OpenAI Anthropic 2025"},
+    {"key": "asia_tech",    "name": "Asia Tech",            "emoji": "🌏", "color": "#e91e63",
+     "query": "China Japan Korea technology AI startup 2025"},
+    {"key": "startups",     "name": "Startups",             "emoji": "🚀", "color": "#ff6d00",
+     "query": "startup funding venture capital launch 2025"},
+    {"key": "new_software", "name": "New Software & Tools", "emoji": "🛠️", "color": "#00bcd4",
+     "query": "new software app tool product launch notion 2025"},
+    {"key": "new_llms",     "name": "New LLMs & Models",    "emoji": "🧠", "color": "#ab47bc",
+     "query": "new LLM model release GPT Claude Gemini Llama 2025"},
 ]
 
 _cache: dict = {}
 _CACHE_TTL = 1800  # 30 minutes
 
+_RSS = "https://news.google.com/rss/search?q={q}&hl=en-US&gl=US&ceid=US:en"
+_HEADERS = {"User-Agent": "MyTwinNewsBot/1.0 (compatible; httpx)"}
 
-async def _raw_news(query: str, max_results: int = 6) -> list:
-    from duckduckgo_search import DDGS
 
-    def _sync():
+# ── Fetch from Google News RSS ────────────────────────────────────────────
+
+async def _fetch_rss(query: str, max_results: int = 6) -> list:
+    url = _RSS.format(q=query.replace(" ", "+"))
+    try:
+        async with httpx.AsyncClient(timeout=12, follow_redirects=True, headers=_HEADERS) as client:
+            r = await client.get(url)
+            r.raise_for_status()
+        root = ElementTree.fromstring(r.content)
+    except Exception as e:
+        logger.error(f"RSS fetch/parse error for '{query}': {e}")
+        return []
+
+    articles = []
+    for item in root.findall(".//item")[:max_results]:
+        title = (item.findtext("title") or "").strip()
+        link  = item.findtext("link") or ""
+        pub   = item.findtext("pubDate") or ""
+        src   = item.find("source")
+        source = src.text.strip() if src is not None else "News"
+
+        date_str = ""
         try:
-            with DDGS() as ddgs:
-                return list(ddgs.news(query, max_results=max_results))
-        except Exception as e:
-            logger.error(f"DDG news error: {e}")
-            return []
+            date_str = parsedate_to_datetime(pub).strftime("%Y-%m-%d")
+        except Exception:
+            date_str = pub[:10]
 
-    return await asyncio.to_thread(_sync)
+        if title and link:
+            articles.append({"title": title, "url": link, "source": source, "date": date_str})
+
+    return articles
 
 
-async def _summarize(client: AsyncOpenAI, title: str, body: str) -> str:
+# ── Summarize with Gemini ─────────────────────────────────────────────────
+
+async def _summarize_batch(articles: list, topic_name: str) -> list:
+    """Summarize all articles in one OpenAI call (cheap, fast)."""
+    if not articles:
+        return []
+    if not config.OPENAI_API_KEY:
+        return [{**a, "summary": a["title"]} for a in articles]
+
+    from openai import AsyncOpenAI
+    client = AsyncOpenAI(api_key=config.OPENAI_API_KEY)
+
+    numbered = "\n".join(f"{i+1}. {a['title']}" for i, a in enumerate(articles))
+    prompt = (
+        f"These are recent news headlines about {topic_name}:\n\n{numbered}\n\n"
+        "Write a 2-sentence factual summary for EACH headline. "
+        "Sentence 1: what happened. Sentence 2: why it matters.\n"
+        "Reply with ONLY numbered summaries:\n"
+        "1. [summary]\n2. [summary]\netc."
+    )
     try:
         r = await client.chat.completions.create(
             model=config.OPENAI_MODEL,
-            messages=[
-                {
-                    "role": "system",
-                    "content": (
-                        "You summarize news articles in exactly 2 clear sentences. "
-                        "Be factual, concise, and highlight the most important insight."
-                    ),
-                },
-                {"role": "user", "content": f"Title: {title}\n\n{body[:700]}"},
-            ],
-            max_tokens=110,
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=600,
         )
-        return r.choices[0].message.content.strip()
+        text = r.choices[0].message.content.strip()
+        summaries: dict[int, str] = {}
+        for line in text.splitlines():
+            m = re.match(r"^(\d+)\.\s+(.+)$", line.strip())
+            if m:
+                summaries[int(m.group(1)) - 1] = m.group(2).strip()
+        return [{**a, "summary": summaries.get(i, a["title"])} for i, a in enumerate(articles)]
     except Exception as e:
-        logger.error(f"Summary error: {e}")
-        return (body[:200] + "…") if len(body) > 200 else body
+        logger.error(f"Summarize error: {e}")
+        return [{**a, "summary": a["title"]} for a in articles]
 
+
+# ── Public API ────────────────────────────────────────────────────────────
 
 async def _fetch_topic(topic: dict) -> dict:
-    raw = await _raw_news(topic["query"])
-    if not raw:
-        return {**topic, "articles": [], "fetched_str": datetime.now().strftime("%H:%M, %d %b"), "_ts": datetime.now().timestamp()}
+    articles_raw = await _fetch_rss(topic["query"])
 
-    client = AsyncOpenAI(api_key=config.OPENAI_API_KEY)
+    if not articles_raw:
+        # Fallback: try DuckDuckGo
+        try:
+            from duckduckgo_search import DDGS
+            def _ddg():
+                with DDGS() as ddgs:
+                    return list(ddgs.news(topic["query"], max_results=6))
+            raw = await asyncio.to_thread(_ddg)
+            articles_raw = [
+                {"title": a.get("title", ""), "url": a.get("url", "#"),
+                 "source": a.get("source", ""), "date": (a.get("date") or "")[:10]}
+                for a in raw if a.get("title")
+            ]
+        except Exception as e:
+            logger.error(f"DuckDuckGo fallback error: {e}")
 
-    summaries = await asyncio.gather(
-        *[_summarize(client, a.get("title", ""), a.get("body", "")) for a in raw]
-    )
-
-    articles = []
-    for a, summary in zip(raw, summaries):
-        articles.append({
-            "title":   a.get("title", ""),
-            "summary": summary,
-            "url":     a.get("url", "#"),
-            "source":  a.get("source", "Unknown"),
-            "date":    (a.get("date") or "")[:10],
-        })
+    articles = await _summarize_batch(articles_raw, topic["name"])
 
     return {
         **topic,

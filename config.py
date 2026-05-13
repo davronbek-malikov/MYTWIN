@@ -12,6 +12,9 @@ DATABASE_PATH: str = os.getenv("DATABASE_PATH", "twin.db")
 DATABASE_URL: str  = os.getenv("DATABASE_URL", "")
 MAX_HISTORY: int = int(os.getenv("MAX_HISTORY", "40"))
 
+# Gemini API (used for News Agent summarization)
+GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
+
 # Google Sheets integration (optional — leave blank to disable)
 GOOGLE_WEBHOOK_URL: str = os.getenv("GOOGLE_WEBHOOK_URL", "")
 GOOGLE_SHEET_ID: str    = os.getenv("GOOGLE_SHEET_ID", "")
